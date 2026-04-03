@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CryoFuture — Tank Storage Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0f1117;--bg2:#161b26;--bg3:#1e2535;--bg4:#252d3d;
+  --border:#2a3347;--border2:#344060;
+  --text:#e8edf5;--text2:#a0aec0;--text3:#718096;
+  --accent:#4f8ef7;
+  --green:#2ecc71;--green-bg:rgba(46,204,113,0.12);
+  --amber:#f0a500;--amber-bg:rgba(240,165,0,0.12);
+  --red:#e74c3c;--red-bg:rgba(231,76,60,0.12);
+  --empty:#4fc3f7;
+}
+html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
+.root{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+
+/* ── header ── */
+.header{display:flex;align-items:center;gap:8px;padding:7px 14px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;flex-wrap:wrap;}
+.logo{font-size:13px;font-weight:600;letter-spacing:.08em;color:var(--text2);text-transform:uppercase;}
+.logo span{color:var(--accent);}
+.fb-divider{width:1px;height:16px;background:var(--border);margin:0 2px;flex-shrink:0;}
+.fb-group{display:flex;align-items:center;gap:5px;}
+.fb-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;}
+.hsel{background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;padding:3px 7px;border-radius:5px;cursor:pointer;outline:none;height:26px;}
+.hsel:focus{border-color:var(--accent);}
+.search-wrap{position:relative;flex:1;max-width:260px;min-width:120px;}
+.search-input{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;padding:3px 8px 3px 26px;border-radius:5px;outline:none;height:26px;transition:border-color .15s;}
+.search-input::placeholder{color:var(--text3);}
+.search-input:focus{border-color:var(--accent);}
+.search-icon{position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--text3);pointer-events:none;}
+.search-results{position:absolute;top:30px;left:0;right:0;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;z-index:9999;display:none;max-height:220px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.5);}
+.search-results.open{display:block;}
+.sr-item{padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;font-size:11px;transition:background .1s;}
+.sr-item:last-child{border-bottom:none;}
+.sr-item:hover{background:rgba(79,142,247,0.1);}
+.sr-name{font-weight:500;color:var(--text);}
+.sr-meta{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:1px;}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:6px;}
+.alert-badge{background:var(--red-bg);color:var(--red);border:1px solid rgba(231,76,60,0.3);font-size:11px;font-weight:500;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+.hdr-btn{font-size:11px;padding:3px 11px;background:transparent;border:1px solid var(--border2);color:var(--text2);border-radius:5px;cursor:pointer;font-family:'DM Sans',sans-serif;height:26px;transition:all .15s;white-space:nowrap;}
+.hdr-btn.reset:hover{border-color:var(--red);color:var(--red);}
+
+/* ── meta strip ── */
+.tank-meta{display:flex;align-items:stretch;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg2);overflow-x:auto;}
+.meta-cell{display:flex;flex-direction:column;justify-content:center;padding:6px 14px;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0;}
+.meta-cell:last-child{border-right:none;}
+.meta-label{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;}
+.meta-val{font-size:12px;font-weight:500;color:var(--text);}
+.meta-val.ok{color:var(--green);}
+.meta-val.warn{color:var(--amber);}
+.meta-val.danger{color:var(--red);}
+.meta-desc{font-size:12px;font-weight:500;color:var(--accent);}
+
+/* ── kpis ── */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border);flex-shrink:0;}
+.kpi{padding:8px 14px;border-right:1px solid var(--border);}
+.kpi:last-child{border-right:none;}
+.kpi-label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;font-weight:500;}
+.kpi-val{font-size:20px;font-weight:600;color:var(--text);font-family:'DM Mono',monospace;line-height:1.1;}
+.kpi-val.ok{color:var(--green);}
+.kpi-val.warn{color:var(--amber);}
+.kpi-val.danger{color:var(--red);}
+.kpi-val.empty-clr{color:var(--empty);}
+.kpi-sub{font-size:11px;color:var(--text2);margin-top:3px;}
+
+/* ── main ── */
+.main{display:grid;grid-template-columns:1fr 284px;flex:1;min-height:0;overflow:hidden;}
+.left-col{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border);}
+
+/* ── tab bar ── */
+.tab-bar{display:flex;align-items:center;padding:7px 12px;border-bottom:1px solid var(--border);flex-shrink:0;gap:0;}
+/* primary tabs */
+.vt-btn{font-size:11px;padding:4px 14px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap;}
+.vt-btn:first-child{border-radius:5px 0 0 5px;}
+.vt-btn.primary-last{border-radius:0 5px 5px 0;}
+.vt-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+/* separator */
+.tab-sep{width:1px;height:20px;background:var(--border2);margin:0 8px;flex-shrink:0;}
+/* tool tabs — distinct visual */
+.tool-btn{font-size:11px;padding:4px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--border2);color:var(--text3);cursor:pointer;font-family:'DM Sans',sans-serif;border-radius:5px;transition:all .15s;white-space:nowrap;display:flex;align-items:center;gap:5px;margin-left:4px;}
+.tool-btn:hover{border-color:var(--text2);color:var(--text2);}
+.tool-btn.active{background:rgba(46,204,113,0.1);border-color:rgba(46,204,113,0.4);color:var(--green);}
+.tool-btn.cal-btn.active{background:rgba(79,142,247,0.1);border-color:rgba(79,142,247,0.4);color:var(--accent);}
+
+/* ── views ── */
+.view{flex:1;overflow:auto;display:flex;flex-direction:column;align-items:center;padding:10px 14px 14px;}
+.view.hidden{display:none;}
+
+/* tank + pie layout */
+.tank-area{display:flex;flex-direction:column;align-items:center;width:100%;gap:0;}
+.level-block{display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;}
+.level-lbl-link{font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;cursor:pointer;padding:3px 10px;border-radius:99px;border:1px solid transparent;transition:all .15s;}
+.level-lbl-link:hover{color:var(--accent);border-color:rgba(79,142,247,0.3);background:rgba(79,142,247,0.06);}
+.level-divider{width:55%;height:1px;background:var(--border);margin:16px 0;}
+.leg{display:flex;gap:8px;flex-wrap:wrap;padding:3px 0;justify-content:center;}
+.li{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2);}
+.ld{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+.hint-small{font-size:10px;color:var(--text3);text-align:center;margin-top:2px;}
+
+/* pie expanded canister panel */
+.pie-can-panel{width:100%;max-width:440px;margin-top:20px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;}
+.pie-can-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.pie-can-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.pie-can-title{font-size:12px;font-weight:500;color:var(--text);}
+.pie-can-stats{font-size:11px;color:var(--text2);margin-left:auto;display:flex;gap:10px;}
+.pie-can-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;}
+.pcc{border-radius:4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:7px 4px;font-size:9px;font-weight:500;font-family:'DM Mono',monospace;border:1px solid transparent;transition:transform .1s;line-height:1.4;}
+.pcc:hover{transform:scale(1.06);}
+.pcc-num{font-size:10px;font-weight:600;}
+.pcc-empty{font-size:9px;}
+
+/* canister view */
+.can-area{width:100%;align-items:flex-start;}
+.can-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;max-width:340px;}
+.can-cell{border-radius:5px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;font-size:9px;font-weight:500;font-family:'DM Mono',monospace;border:1px solid transparent;transition:transform .1s;line-height:1.4;aspect-ratio:1;}
+.can-cell:hover{transform:scale(1.05);}
+.cc-num{font-size:12px;font-weight:600;}
+.cc-empty{font-size:10px;font-weight:400;}
+.cc-spec{font-size:8px;opacity:.8;}
+
+/* slot view */
+.slot-area{width:100%;flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.stbl-header{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap;flex-shrink:0;}
+.stbl-filter{font-size:11px;font-family:'DM Sans',sans-serif;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:3px 7px;border-radius:4px;cursor:pointer;outline:none;}
+.export-btn{font-size:11px;padding:4px 10px;background:transparent;border:1px solid var(--border2);color:var(--text2);border-radius:4px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-left:auto;transition:all .15s;}
+.export-btn:hover{border-color:var(--green);color:var(--green);}
+.stbl-wrap{overflow:auto;flex:1;}
+.stbl{width:100%;border-collapse:collapse;font-size:10px;}
+.stbl th{font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;padding:5px 7px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;background:var(--bg2);position:sticky;top:0;z-index:1;}
+.stbl td{padding:5px 7px;border-bottom:1px solid var(--border);color:var(--text2);white-space:nowrap;cursor:pointer;}
+.stbl tr:hover td{background:rgba(79,142,247,0.05);}
+.stbl tr.sel td{background:rgba(79,142,247,0.08);}
+.stbl td.col-name{color:var(--text);font-weight:500;}
+.stbl td.col-empty{color:var(--empty);font-style:italic;}
+.stbl td.col-mono{font-family:'DM Mono',monospace;}
+
+/* calendar */
+.cal-area{width:100%;align-items:flex-start;}
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.cal-nav{background:transparent;border:1px solid var(--border);color:var(--text2);font-size:12px;padding:4px 12px;border-radius:4px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.cal-nav:hover{border-color:var(--accent);color:var(--accent);}
+.cal-month{font-size:14px;font-weight:500;color:var(--text);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.cal-day-hdr{font-size:9px;color:var(--text3);text-align:center;padding:5px 0 6px;text-transform:uppercase;letter-spacing:.04em;}
+.cal-day{min-height:40px;border-radius:5px;padding:5px 6px;font-size:12px;font-family:'DM Mono',monospace;color:var(--text3);position:relative;border:1px solid transparent;transition:background .1s;}
+.cal-day.has-event{color:var(--text);cursor:pointer;border-color:var(--border);}
+.cal-day.has-event:hover{background:var(--bg3);}
+.cal-day.today{background:rgba(79,142,247,0.14);color:var(--accent);border-color:rgba(79,142,247,0.3);}
+.cal-day.other-month{opacity:0.28;}
+.cal-dots{display:flex;gap:3px;margin-top:3px;flex-wrap:wrap;}
+.cal-dot{width:5px;height:5px;border-radius:50%;display:inline-block;}
+.cal-legend{display:flex;gap:12px;margin-top:12px;flex-wrap:wrap;}
+.cal-events-list{margin-top:16px;border-top:1px solid var(--border);padding-top:12px;}
+.cal-ev-item{display:flex;align-items:flex-start;gap:10px;padding:8px 6px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:5px;transition:background .1s;}
+.cal-ev-item:last-child{border-bottom:none;}
+.cal-ev-item:hover{background:rgba(79,142,247,0.06);}
+.cal-ev-date{font-size:10px;font-family:'DM Mono',monospace;white-space:nowrap;min-width:52px;padding-top:2px;}
+.cal-ev-body{flex:1;min-width:0;}
+.cal-ev-name{font-size:11px;font-weight:500;color:var(--text);margin-bottom:2px;}
+.cal-ev-loc{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;}
+
+/* find space */
+.find-area{width:100%;align-items:flex-start;}
+.find-intro{font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.65;}
+.find-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+.spec-btn{font-size:11px;padding:5px 12px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:5px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.spec-btn:hover{border-color:var(--text2);color:var(--text);}
+.spec-btn.active{background:rgba(79,142,247,0.12);border-color:var(--accent);color:var(--accent);}
+.place-rec{background:var(--bg3);border-radius:7px;padding:10px 12px;margin-bottom:8px;border-left:3px solid transparent;cursor:pointer;transition:background .15s;}
+.place-rec:hover{background:var(--bg4);}
+.place-rec.r1{border-color:var(--green);}
+.place-rec.r2{border-color:var(--accent);}
+.place-rec.r3{border-color:var(--amber);}
+.pr-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+.pr-rank{font-size:10px;font-weight:600;color:var(--text3);}
+.pr-score{font-size:11px;font-family:'DM Mono',monospace;}
+.pr-name{font-size:12px;font-weight:500;color:var(--text);margin-bottom:3px;}
+.pr-detail{font-size:10px;color:var(--text2);margin-bottom:5px;}
+.pr-tags{display:flex;gap:4px;flex-wrap:wrap;}
+.pr-tag{font-size:9px;padding:2px 6px;border-radius:99px;background:var(--bg4);color:var(--text2);}
+
+/* right col */
+.right-col{display:flex;flex-direction:column;background:var(--bg2);overflow:hidden;}
+.right-scroll{flex:1;overflow-y:auto;}
+.panel{border-bottom:1px solid var(--border);}
+.panel-hdr{padding:7px 12px;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;}
+.panel-hdr-title{font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;flex:1;}
+.panel-chev{font-size:10px;color:var(--text3);transition:transform .2s;}
+.panel-chev.open{transform:rotate(90deg);}
+.panel-sel{font-size:10px;font-family:'DM Sans',sans-serif;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:2px 6px;border-radius:4px;cursor:pointer;outline:none;}
+.panel-body{padding:8px 12px;}
+.panel-body.collapsed{display:none;}
+
+/* utilization */
+.util-row{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border);}
+.util-row:last-child{border-bottom:none;}
+.util-row:hover .ut-label{color:var(--accent);}
+.ut-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.ut-label{font-size:11px;color:var(--text);flex:1;cursor:pointer;transition:color .15s;}
+.ut-sub{font-size:10px;color:var(--text2);}
+.bar-track{flex:0 0 40px;height:3px;background:var(--bg4);border-radius:2px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:2px;transition:width .5s;}
+.spct{font-size:10px;font-family:'DM Mono',monospace;color:var(--text2);min-width:26px;text-align:right;}
+.spct.warn{color:var(--amber);}
+.spct.danger{color:var(--red);}
+.util-expand{padding:4px 0 4px 12px;display:none;}
+.util-expand.open{display:block;}
+.pie-sub-row{display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+.pie-sub-row:last-child{border-bottom:none;}
+.pie-sub-row:hover .ps-name{color:var(--accent);}
+.ps-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.ps-name{font-size:11px;color:var(--text);flex:1;transition:color .15s;}
+.ps-bar{flex:0 0 36px;height:2px;background:var(--bg4);border-radius:2px;overflow:hidden;}
+.ps-fill{height:100%;border-radius:2px;}
+.ps-pct{font-size:10px;font-family:'DM Mono',monospace;min-width:26px;text-align:right;}
+.ps-empty{font-size:10px;color:var(--empty);min-width:34px;text-align:right;}
+
+/* velocity */
+.vel-summary{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;}
+.vel-stat{background:var(--bg3);border-radius:5px;padding:8px 9px;text-align:center;}
+.vel-stat-label{font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;font-weight:500;}
+.vel-stat-val{font-size:18px;font-weight:600;font-family:'DM Mono',monospace;}
+.vel-chart{display:flex;gap:4px;align-items:flex-end;height:58px;}
+.vel-col{display:flex;flex-direction:column;align-items:center;flex:1;gap:2px;}
+.vel-bars{display:flex;gap:2px;align-items:flex-end;height:50px;}
+.vel-b-in{width:8px;background:rgba(231,76,60,0.55);border-radius:2px 2px 0 0;}
+.vel-b-out{width:8px;background:rgba(46,204,113,0.55);border-radius:2px 2px 0 0;}
+.vel-wlbl{font-size:9px;color:var(--text2);}
+.vel-legend{display:flex;gap:10px;margin-top:6px;}
+
+/* detail panel */
+.detail-ph{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;text-align:center;}
+.detail-ph-icon{font-size:28px;margin-bottom:8px;opacity:.28;}
+.detail-ph-text{font-size:11px;color:var(--text3);line-height:1.7;max-width:180px;}
+/* breadcrumb */
+.breadcrumb{display:flex;align-items:center;gap:4px;font-size:10px;font-family:'DM Mono',monospace;margin-bottom:8px;flex-wrap:wrap;}
+.bc-seg{color:var(--text3);cursor:pointer;transition:color .15s;padding:1px 3px;border-radius:3px;}
+.bc-seg:hover{color:var(--accent);background:rgba(79,142,247,0.08);}
+.bc-seg.active{color:var(--accent);cursor:default;}
+.bc-seg.active:hover{background:transparent;}
+.bc-sep{color:var(--border2);}
+.mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px;}
+.ms{background:var(--bg3);border-radius:5px;padding:7px 9px;}
+.ms-l{font-size:10px;color:var(--text2);margin-bottom:2px;font-weight:500;}
+.ms-v{font-size:15px;font-weight:600;font-family:'DM Mono',monospace;color:var(--text);}
+.slot-mini-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin:5px 0;}
+.smc{aspect-ratio:1;border-radius:3px;border:1px solid var(--border2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:500;font-family:'DM Mono',monospace;transition:transform .1s;}
+.smc:hover{transform:scale(1.12);}
+.drow{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;}
+.drow:last-child{border-bottom:none;}
+.dk{color:var(--text2);}
+.dv{color:var(--text);font-weight:500;text-align:right;max-width:68%;word-break:break-all;}
+.badge{display:inline-flex;align-items:center;font-size:10px;padding:2px 7px;border-radius:99px;font-weight:500;}
+.b-ok{background:var(--green-bg);color:var(--green);}
+.b-warn{background:var(--amber-bg);color:var(--amber);}
+.b-danger{background:var(--red-bg);color:var(--red);}
+.b-info{background:rgba(79,142,247,0.15);color:var(--accent);}
+.b-empty{background:rgba(79,195,247,0.12);color:var(--empty);}
+.b-reactive{background:rgba(201,168,0,0.15);color:#f0c030;}
+.cap-warn-box{background:rgba(231,76,60,0.08);border:1px solid rgba(231,76,60,0.25);border-radius:5px;padding:7px 9px;margin-bottom:8px;font-size:11px;color:var(--red);}
+
+/* change log */
+.log-item{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px;}
+.log-item:last-child{border-bottom:none;}
+.log-time{font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;min-width:40px;padding-top:1px;}
+.log-icon{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;margin-top:1px;}
+.log-body{flex:1;}
+.log-action{color:var(--text);font-weight:500;}
+.log-detail{font-size:10px;color:var(--text2);margin-top:1px;font-family:'DM Mono',monospace;}
+
+/* pending */
+.pend-item{padding:6px 4px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;border-radius:3px;}
+.pend-item:last-of-type{border-bottom:none;}
+.pend-item:hover{background:rgba(79,142,247,0.07);}
+.pname{font-size:11px;font-weight:500;color:var(--text);margin-bottom:1px;}
+.ploc{font-size:10px;color:var(--text2);font-family:'DM Mono',monospace;}
+.see-all{font-size:11px;padding:5px 10px;background:transparent;border:1px solid var(--border2);color:var(--text2);border-radius:5px;cursor:pointer;width:100%;margin-top:7px;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.see-all:hover{border-color:var(--accent);color:var(--accent);}
+
+/* nav helpers */
+.back-btn{background:transparent;border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:10px;transition:all .15s;flex-shrink:0;}
+.back-btn:hover{border-color:var(--accent);color:var(--accent);}
+.locate-btn{background:transparent;border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:10px;display:inline-block;transition:all .15s;}
+.locate-btn:hover{border-color:var(--accent);color:var(--accent);}
+.empty-banner{font-size:11px;color:var(--empty);margin-bottom:8px;padding:5px 9px;background:rgba(79,195,247,0.08);border-radius:4px;border:1px solid rgba(79,195,247,0.2);flex-shrink:0;}
+
+/* tooltip */
+.tooltip{position:fixed;background:#1e2535;border:1px solid var(--border2);color:var(--text);font-size:10px;font-family:'DM Sans',sans-serif;padding:8px 11px;border-radius:6px;pointer-events:none;z-index:9999;white-space:nowrap;display:none;line-height:1.9;box-shadow:0 4px 24px rgba(0,0,0,0.5);}
+
+/* animations */
+@keyframes reactPulse{0%,100%{opacity:1;}50%{opacity:0.25;}}
+.react-pulse{animation:reactPulse 2s ease-in-out infinite;}
+@keyframes locateFlash{0%{opacity:1;}25%{opacity:0.07;}50%{opacity:1;}75%{opacity:0.07;}100%{opacity:1;}}
+.locate-flash{animation:locateFlash 0.65s ease-in-out 3;}
+@keyframes searchPing{0%,100%{opacity:1;}40%{opacity:0.1;}}
+.search-highlight{animation:searchPing 0.6s ease-in-out 4;}
+@keyframes fadeIn{from{opacity:0;transform:scale(0.94);}to{opacity:1;transform:scale(1);}}
+</style>
+</head>
+<body>
+<div class="root">
+  <div class="header">
+    <span class="logo">Cryo<span>Future</span></span>
+    <div class="fb-divider"></div>
+    <div class="fb-group"><span class="fb-label">Vault</span>
+      <select class="hsel" onchange="rebuildAll()"><option>Vault A — Atlanta</option><option>Vault B — Decatur</option></select>
+    </div>
+    <div class="fb-divider"></div>
+    <div class="fb-group"><span class="fb-label">Tank</span>
+      <select class="hsel" id="tankSel" onchange="rebuildAll()"><option>Tank 1</option><option>Tank 2</option><option>Tank 3</option></select>
+    </div>
+    <div class="fb-divider"></div>
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input class="search-input" id="searchInput" type="text" placeholder="Search patient, specimen, clinic..." oninput="onSearch()" onblur="setTimeout(closeSearch,200)">
+      <div class="search-results" id="searchResults"></div>
+    </div>
+    <div class="header-right">
+      <span class="alert-badge">● <span id="pendCount">8</span> pending</span>
+      <button class="hdr-btn reset" onclick="hardReset()">↺ Reset</button>
+    </div>
+  </div>
+
+  <div class="tank-meta" id="tankMeta"></div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-label">Empty slots</div><div class="kpi-val empty-clr" id="kEmpty">—</div><div class="kpi-sub" id="kEmptySub"></div></div>
+    <div class="kpi"><div class="kpi-label">Occupied</div><div class="kpi-val" id="kOcc">—</div><div class="kpi-sub" id="kOccSub"></div></div>
+    <div class="kpi"><div class="kpi-label">Utilization</div><div class="kpi-val" id="kUtil">—</div><div class="kpi-sub" id="kUtilSub"></div></div>
+    <div class="kpi"><div class="kpi-label">Days to full</div><div class="kpi-val" id="kDays">—</div><div class="kpi-sub" id="kDaysSub"></div></div>
+  </div>
+
+  <div class="main">
+    <div class="left-col">
+      <!-- tab bar: primary hierarchy + separator + tool tabs -->
+      <div class="tab-bar">
+        <button class="vt-btn active" id="vt-tank" onclick="setView('tank',this)">Tank</button>
+        <button class="vt-btn" id="vt-pie" onclick="setView('pie',this)">Pie</button>
+        <button class="vt-btn" id="vt-canister" onclick="setView('canister',this)">Canister</button>
+        <button class="vt-btn primary-last" id="vt-slot" onclick="setView('slot',this)">Slot</button>
+        <div class="tab-sep"></div>
+        <button class="tool-btn cal-btn" id="vt-calendar" onclick="setView('calendar',this)">📅 Calendar</button>
+        <button class="tool-btn" id="vt-findspace" onclick="setView('findspace',this)">◈ Find Space</button>
+      </div>
+
+      <!-- TANK VIEW -->
+      <div class="view" id="viewTank">
+        <div class="tank-area">
+          <span class="level-lbl-link" onclick="setView('pie',document.getElementById('vt-pie'))">▸ Top level</span>
+          <div style="position:relative;" id="topWrap"></div>
+          <div class="level-divider"></div>
+          <span class="level-lbl-link" onclick="setView('pie',document.getElementById('vt-pie'))">▸ Bottom level</span>
+          <div style="position:relative;" id="botWrap"></div>
+          <div class="leg" id="tankLeg"></div>
+          <span class="hint-small">Hover any canister for details · click to drill in · click level labels for Pie view</span>
+        </div>
+      </div>
+
+      <!-- PIE VIEW -->
+      <div class="view hidden" id="viewPie">
+        <div class="tank-area" style="width:100%;">
+          <span class="level-lbl-link" style="cursor:default;border:none;">Top level</span>
+          <div style="position:relative;" id="pieTopWrap"></div>
+          <div class="level-divider"></div>
+          <span class="level-lbl-link" style="cursor:default;border:none;">Bottom level</span>
+          <div style="position:relative;" id="pieBotWrap"></div>
+          <span class="hint-small" id="pieHint">Click a pie name to highlight its canisters · click a canister to inspect</span>
+          <!-- expanded canister panel for selected pie -->
+          <div id="pieCanPanel" style="display:none;width:100%;max-width:440px;"></div>
+        </div>
+      </div>
+
+      <!-- CANISTER VIEW -->
+      <div class="view hidden" id="viewCanister" style="align-items:flex-start;">
+        <div class="can-area" id="canisterContent"></div>
+      </div>
+
+      <!-- SLOT VIEW -->
+      <div class="view hidden" id="viewSlot" style="align-items:flex-start;overflow:hidden;">
+        <div class="slot-area" id="slotContent"></div>
+      </div>
+
+      <!-- CALENDAR VIEW -->
+      <div class="view hidden" id="viewCalendar" style="align-items:flex-start;">
+        <div class="cal-area" id="calContent" style="width:100%;max-width:480px;"></div>
+      </div>
+
+      <!-- FIND SPACE VIEW -->
+      <div class="view hidden" id="viewFindspace" style="align-items:flex-start;">
+        <div class="find-area" id="findContent" style="width:100%;max-width:460px;"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-col">
+      <div class="right-scroll">
+
+        <!-- Slot map (detail) -->
+        <div class="panel">
+          <div class="panel-hdr" onclick="togglePanel(this)">
+            <span class="panel-hdr-title" id="detailTitle">Details</span>
+            <span class="panel-chev open">▸</span>
+          </div>
+          <div class="panel-body" id="detailBody">
+            <div class="detail-ph"><div class="detail-ph-icon">○</div><div class="detail-ph-text">Click any canister on the tank diagram to inspect its slots and specimen data.</div></div>
+          </div>
+        </div>
+
+        <!-- Utilization — collapsed by default -->
+        <div class="panel">
+          <div class="panel-hdr" onclick="togglePanel(this)">
+            <span class="panel-hdr-title">Utilization</span>
+            <span class="panel-chev">▸</span>
+          </div>
+          <div class="panel-body collapsed" id="utilPanel"></div>
+        </div>
+
+        <!-- Velocity -->
+        <div class="panel">
+          <div class="panel-hdr" onclick="togglePanel(this)" style="cursor:default;">
+            <span class="panel-hdr-title">Cane velocity</span>
+            <select class="panel-sel" id="velRange" onclick="e=>e.stopPropagation()" onchange="buildVelPanel()" style="margin-left:auto;">
+              <option value="week">Last week</option>
+              <option value="month" selected>Last month</option>
+              <option value="6months">Last 6 months</option>
+              <option value="year">Last year</option>
+              <option value="ytd">YTD</option>
+            </select>
+          </div>
+          <div class="panel-body" id="velPanel"></div>
+        </div>
+
+        <!-- Pending -->
+        <div class="panel">
+          <div class="panel-hdr" onclick="togglePanel(this)">
+            <span class="panel-hdr-title">Pending actions</span>
+            <span class="panel-chev open">▸</span>
+          </div>
+          <div class="panel-body" id="pendingList"></div>
+        </div>
+
+        <!-- Change log -->
+        <div class="panel">
+          <div class="panel-hdr" onclick="togglePanel(this)">
+            <span class="panel-hdr-title">Change log</span>
+            <span class="panel-chev">▸</span>
+          </div>
+          <div class="panel-body collapsed" id="changeLog"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const SLICES=[
+  {name:'Green Top',    short:'Green',  color:'#27ae60',level:'top'},
+  {name:'Brown Top',    short:'Brown',  color:'#8B5E3C',level:'top'},
+  {name:'Pink Top',     short:'Pink',   color:'#d81b8a',level:'top'},
+  {name:'Purple Bottom',short:'Purple', color:'#8e44ad',level:'bottom'},
+  {name:'Blue Bottom',  short:'Blue',   color:'#0288d1',level:'bottom'},
+  {name:'Red Bottom',   short:'Red',    color:'#c0392b',level:'bottom'},
+  {name:'Yellow Bottom',short:'Yellow', color:'#c9a800',level:'bottom'},
+];
+const SPEC=['Embryo','Sperm','Oocyte','Ovarian Tissue'];
+const SPEC_C={'Embryo':'#4f8ef7','Sperm':'#2ecc71','Oocyte':'#d81b8a','Ovarian Tissue':'#f0a500'};
+const CLINICS=['Sutter Health IVF','UCSF Fertility','Stanford Reproductive','Kaiser Oakland','Pacific Fertility'];
+const FIRSTS=['Emma','Liam','Olivia','Noah','Ava','Elijah','Sophia','James','Isabella','Oliver','Mia','William','Amelia','Benjamin','Harper','Lucas','Evelyn','Henry','Abigail','Alexander'];
+const LASTS=['Johnson','Williams','Brown','Jones','Garcia','Miller','Davis','Wilson','Moore','Taylor','Anderson','Thomas','Jackson','White','Harris','Martin','Thompson','Martinez','Robinson','Clark'];
+const TANK_CFGS=[
+  {desc:'Sutter Health — IVF Program',age:6.2,lastAudit:'2024-03-15'},
+  {desc:'UCSF Fertility Center',      age:8.4,lastAudit:'2023-11-02'},
+  {desc:'General Storage — Mixed',    age:9.1,lastAudit:'2024-01-20'},
+];
+const PENDING_DATA=[
+  {name:'Transport — 3 vials',   loc:'Green Top · C7 · Slots 3,9,14',type:'transport',pieName:'Green Top',   canNum:7,date:'2025-04-14'},
+  {name:'Termination consent',   loc:'Purple Bottom · C4 · Slot 11', type:'terminate',pieName:'Purple Bottom',canNum:4,date:'2025-04-16'},
+  {name:'Transport — 1 vial',    loc:'Pink Top · C12 · Slot 6',      type:'transport',pieName:'Pink Top',    canNum:12,date:'2025-04-18'},
+  {name:'Termination — awaiting',loc:'Red Bottom · C9 · Slot 2',     type:'pending',  pieName:'Red Bottom',  canNum:9,date:'2025-04-22'},
+  {name:'Transport — 2 vials',   loc:'Blue Bottom · C3 · Slots 1,8', type:'transport',pieName:'Blue Bottom', canNum:3,date:'2025-04-24'},
+  {name:'Termination consent',   loc:'Brown Top · C11 · Slot 14',    type:'terminate',pieName:'Brown Top',   canNum:11,date:'2025-04-29'},
+  {name:'Transport — 1 vial',    loc:'Yellow Bottom · C5 · Slot 3',  type:'transport',pieName:'Yellow Bottom',canNum:5,date:'2025-05-03'},
+  {name:'Termination consent',   loc:'Green Top · C14 · Slot 8',     type:'terminate',pieName:'Green Top',  canNum:14,date:'2025-05-08'},
+];
+const VEL_DATA={
+  week:[{l:'Mon',i:3,o:1},{l:'Tue',i:5,o:2},{l:'Wed',i:2,o:3},{l:'Thu',i:7,o:1},{l:'Fri',i:4,o:2},{l:'Sat',i:1,o:0},{l:'Sun',i:0,o:1}],
+  month:[{l:'W1',i:18,o:7},{l:'W2',i:24,o:11},{l:'W3',i:15,o:9},{l:'W4',i:21,o:6}],
+  '6months':[{l:'Jan',i:72,o:28},{l:'Feb',i:65,o:31},{l:'Mar',i:88,o:24},{l:'Apr',i:79,o:35},{l:'May',i:91,o:27},{l:'Jun',i:84,o:22}],
+  year:[{l:'Q1',i:225,o:83},{l:'Q2',i:254,o:84},{l:'Q3',i:238,o:97},{l:'Q4',i:201,o:78}],
+  ytd:[{l:'Jan',i:72,o:28},{l:'Feb',i:65,o:31},{l:'Mar',i:88,o:24},{l:'Apr',i:79,o:35},{l:'May',i:91,o:27},{l:'Jun',i:84,o:22},{l:'Jul',i:76,o:19}],
+};
+const CHANGE_LOG=[
+  {t:'9:14a',ic:'＋',cl:'#2ecc71',a:'Specimen added',d:'Emma Johnson · Embryo · Green Top C7 S3'},
+  {t:'8:52a',ic:'→',cl:'#4f8ef7',a:'Transport confirmed',d:'Liam Williams · Sperm · Blue Bottom C3'},
+  {t:'8:30a',ic:'✓',cl:'#f0a500',a:'Canister audited',d:'Pink Top C12 · 14/16 slots verified'},
+  {t:'7:55a',ic:'−',cl:'#e74c3c',a:'Termination processed',d:'Olivia Brown · Embryo · Purple Bottom C4'},
+  {t:'7:20a',ic:'＋',cl:'#2ecc71',a:'Specimen added',d:'Noah Jones · Oocyte · Brown Top C11 S6'},
+  {t:'yest.',ic:'✓',cl:'#f0a500',a:'Tank audit completed',d:'Tank 1 — 3,201 / 3,584 slots verified'},
+  {t:'yest.',ic:'→',cl:'#4f8ef7',a:'Transport dispatched',d:'Ava Garcia · Embryo · Red Bottom C9'},
+];
+
+let tankData=[];
+let selPie=null,selCan=null,selSlot=null,curView='tank';
+let svgPathMap={};
+let calViewDate=new Date(2025,3,1);
+
+function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function randName(){return FIRSTS[rnd(0,FIRSTS.length-1)]+' '+LASTS[rnd(0,LASTS.length-1)];}
+function fmtDate(y,m,d){return `${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')}/${y}`;}
+function fmtDateStr(s){const[y,m,d]=s.split('-');return `${m}/${d}/${y}`;}
+function randDate(y0,y1){return fmtDate(rnd(y0,y1),rnd(1,12),rnd(1,28));}
+function randDOB(){return fmtDate(rnd(1970,1998),rnd(1,12),rnd(1,28));}
+function randRFID(){return Array.from({length:8},()=>Math.floor(Math.random()*256).toString(16).toUpperCase().padStart(2,'0')).join(':');}
+
+function makeSlots(bias,forceReact,pieName,canNum,tk){
+  return Array.from({length:16},(_,i)=>{
+    const occ=Math.random()<(bias||0.6),pend=occ&&Math.random()<0.04;
+    const spec=occ?SPEC[rnd(0,3)]:null;
+    return{id:i+1,occ,pend,name:occ?randName():null,dob:occ?randDOB():null,spec,
+      react:occ?(forceReact&&i<5?'Reactive':'Non-reactive'):null,
+      received:occ?randDate(2019,2024):null,frozen:occ?randDate(2019,2024):null,
+      rfid:occ?randRFID():null,clinic:occ?CLINICS[rnd(0,CLINICS.length-1)]:null,
+      tank:tk,pie:pieName,canister:`C${canNum}`,slot:`S${i+1}`};
+  });
+}
+
+function buildData(){
+  const tSls=SLICES.filter(s=>s.level==='top'),bSls=SLICES.filter(s=>s.level==='bottom');
+  const tRSI=rnd(0,tSls.length-1),tRCI=rnd(0,15),bRSI=rnd(0,bSls.length-1),bRCI=rnd(0,15);
+  const tk=`Tank ${document.getElementById('tankSel').selectedIndex+1}`;
+  tankData=SLICES.map(sl=>{
+    const bias=sl.name==='Brown Top'?0.86:sl.name==='Red Bottom'?0.83:rnd(33,70)/100;
+    const isTR=sl.level==='top'&&tSls.indexOf(sl)===tRSI,isBR=sl.level==='bottom'&&bSls.indexOf(sl)===bRSI;
+    return{...sl,canisters:Array.from({length:16},(_,ci)=>{
+      const isRC=(isTR&&ci===tRCI)||(isBR&&ci===bRCI);
+      return{id:`${sl.name.replace(/ /g,'-')}-C${ci+1}`,pieName:sl.name,pieColor:sl.color,pieShort:sl.short,num:ci+1,isReactive:isRC,
+        slots:makeSlots(bias,isRC,sl.name,ci+1,tk)};
+    })};
+  });
+}
+
+const r2a=(hex,a)=>{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `rgba(${r},${g},${b},${a})`;};
+const piePct=sl=>sl.canisters.reduce((a,c)=>a+c.slots.filter(s=>s.occ).length,0)/256;
+const canPct=can=>can.slots.filter(s=>s.occ).length/16;
+const canEmpty=can=>can.slots.filter(s=>!s.occ).length;
+const hasPend=can=>can.slots.some(s=>s.pend);
+const levelPct=lv=>{const sls=tankData.filter(s=>s.level===lv);return sls.reduce((a,sl)=>a+sl.canisters.reduce((b,c)=>b+c.slots.filter(s=>s.occ).length,0),0)/(sls.length*256);};
+const totalOcc=()=>tankData.reduce((a,sl)=>a+sl.canisters.reduce((b,c)=>b+c.slots.filter(s=>s.occ).length,0),0);
+function getVelData(){return VEL_DATA[document.getElementById('velRange').value]||VEL_DATA.month;}
+function netPerMonth(){const d=getVelData(),r=document.getElementById('velRange').value,tot=d.reduce((a,v)=>a+v.i-v.o,0),div={week:.25,month:1,'6months':6,year:12,ytd:7};return tot/(div[r]||1);}
+function projDays(){const n=netPerMonth();if(n<=0)return null;return Math.round((3584-totalOcc())/(n/30));}
+
+function updateKPIs(){
+  const occ=totalOcc(),empty=3584-occ,pct=Math.round(occ/3584*100);
+  const atCap=tankData.filter(sl=>piePct(sl)>=0.8).length,days=projDays();
+  document.getElementById('kEmpty').textContent=empty.toLocaleString();
+  document.getElementById('kEmptySub').textContent=Math.round(empty/3584*100)+'% of capacity';
+  document.getElementById('kOcc').textContent=occ.toLocaleString();
+  document.getElementById('kOccSub').textContent=pct+'% utilized';
+  const uEl=document.getElementById('kUtil');uEl.textContent=pct+'%';
+  uEl.className='kpi-val'+(pct>=80?' danger':pct>=70?' warn':'');
+  document.getElementById('kUtilSub').textContent=atCap>0?`⚠ ${atCap} pie${atCap>1?'s':''} at 80%+`:'Threshold at 80%';
+  const dEl=document.getElementById('kDays'),dSub=document.getElementById('kDaysSub');
+  if(days){const d=new Date();d.setDate(d.getDate()+days);dEl.textContent=days+'d';dEl.className='kpi-val'+(days<60?' danger':days<120?' warn':'');dSub.textContent=fmtDate(d.getFullYear(),d.getMonth()+1,d.getDate());}
+  else{dEl.textContent='—';dEl.className='kpi-val ok';dSub.textContent='Net outflow';}
+}
+
+function buildTankMeta(){
+  const t=TANK_CFGS[document.getElementById('tankSel').selectedIndex]||TANK_CFGS[0];
+  const ds=Math.floor((new Date()-new Date(t.lastAudit))/(864e5)),over=ds>365;
+  const ac=t.age>=9?'danger':t.age>=8?'warn':'ok',nr=+(10-t.age).toFixed(1);
+  document.getElementById('tankMeta').innerHTML=`
+    <div class="meta-cell" style="flex:0 0 auto;min-width:200px;"><div class="meta-label">Tank description</div><div class="meta-desc">${t.desc}</div></div>
+    <div class="meta-cell"><div class="meta-label">Tank age</div><div class="meta-val ${ac}">${t.age} yrs <span style="font-size:10px;opacity:.8;">replace in ${nr}yr${nr!==1?'s':''}</span></div></div>
+    <div class="meta-cell"><div class="meta-label">Last audited</div><div class="meta-val ${over?'danger':''}">${fmtDateStr(t.lastAudit)}${over?' <span style="font-size:10px;">(overdue)</span>':''}</div></div>`;
+}
+
+const tip=document.getElementById('tooltip');
+function showTip(e,h){tip.innerHTML=h;tip.style.display='block';moveTip(e);}
+function moveTip(e){let x=e.clientX+14,y=e.clientY+14;if(x+260>window.innerWidth)x=e.clientX-270;if(y+140>window.innerHeight)y=e.clientY-140;tip.style.left=x+'px';tip.style.top=y+'px';}
+function hideTip(){tip.style.display='none';}
+
+function canColor(can,sl,dim){
+  const pct=canPct(can),isSel=selCan&&selCan.id===can.id;
+  if(isSel)return{fill:r2a('#4f8ef7',.85),stroke:'#4f8ef7',sw:1.2};
+  if(can.isReactive)return{fill:r2a('#c9a800',dim?.06:.14),stroke:`rgba(201,168,0,${dim?.12:.44})`,sw:.8};
+  if(pct===0)  return{fill:r2a('#4fc3f7',dim?.07:.34),stroke:`rgba(79,195,247,${dim?.12:.56})`,sw:.7};
+  if(pct<.25)  return{fill:r2a('#4fc3f7',dim?.04:.14),stroke:`rgba(79,195,247,${dim?.08:.28})`,sw:.5};
+  if(pct<.55)  return{fill:r2a(sl.color,dim?.03:.10),stroke:r2a(sl.color,dim?.07:.24),sw:.5};
+  if(pct<.8)   return{fill:r2a(sl.color,dim?.05:.22),stroke:r2a(sl.color,dim?.09:.38),sw:.5};
+  return        {fill:r2a(sl.color,dim?.08:.45),stroke:r2a(sl.color,dim?.14:.62),sw:.6};
+}
+
+/* pending dot for pie labels */
+function piePendingCount(sl){return sl.canisters.reduce((a,c)=>a+c.slots.filter(s=>s.pend).length,0);}
+
+function drawCircle(opts){
+  const{canEl,svgEl,slices,cx,cy,R,innerR,angStart,angStep,animIn,isMain,selPieName,onCan,onPie}=opts;
+  const ns='http://www.w3.org/2000/svg';
+  const ctx=canEl.getContext('2d');ctx.clearRect(0,0,canEl.width,canEl.height);
+  slices.forEach((sl,si)=>{
+    const a0=angStart+si*angStep,a1=a0+angStep,am=(a0+a1)/2,gr=R+40;
+    const mx=cx+gr*.42*Math.cos(am),my=cy+gr*.42*Math.sin(am);
+    const grd=ctx.createRadialGradient(mx,my,R*.04,mx,my,gr*.94);
+    const rr=parseInt(sl.color.slice(1,3),16),gg=parseInt(sl.color.slice(3,5),16),bb=parseInt(sl.color.slice(5,7),16);
+    grd.addColorStop(0,`rgba(${rr},${gg},${bb},.15)`);grd.addColorStop(.55,`rgba(${rr},${gg},${bb},.05)`);grd.addColorStop(1,`rgba(${rr},${gg},${bb},0)`);
+    ctx.save();ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,gr,a0,a1);ctx.closePath();ctx.fillStyle=grd;ctx.fill();ctx.restore();
+  });
+  svgEl.innerHTML='';
+  const SGAP=.034,CGAP=.010,rng=R-innerR-4,CW=rng/4,lblR=R+26;
+  slices.forEach((sl,si)=>{
+    const a0=angStart+si*angStep,a1=a0+angStep,am=(a0+a1)/2;
+    const au=angStep-SGAP*2,ss=au/4;
+    const isHl=!selPieName||selPieName===sl.name,dim=!!selPieName&&selPieName!==sl.name;
+    const g=document.createElementNS(ns,'g');
+    if(animIn){g.style.opacity='0';g.style.animation=`fadeIn .42s ease forwards ${si*.07}s`;}
+    // canisters
+    sl.canisters.forEach((can,ci)=>{
+      const row=Math.floor(ci/4),col=ci%4;
+      const r0=innerR+4+row*CW,r1=r0+CW-2;
+      const aCS=a0+SGAP+col*ss,aCE=aCS+ss;
+      const col_=canColor(can,sl,dim);
+      const x0=cx+r0*Math.cos(aCS+CGAP),y0=cy+r0*Math.sin(aCS+CGAP);
+      const x1=cx+r1*Math.cos(aCS+CGAP),y1=cy+r1*Math.sin(aCS+CGAP);
+      const x2=cx+r1*Math.cos(aCE-CGAP),y2=cy+r1*Math.sin(aCE-CGAP);
+      const x3=cx+r0*Math.cos(aCE-CGAP),y3=cy+r0*Math.sin(aCE-CGAP);
+      const d=`M${x0} ${y0} L${x1} ${y1} A${r1} ${r1} 0 0 1 ${x2} ${y2} L${x3} ${y3} A${r0} ${r0} 0 0 0 ${x0} ${y0}Z`;
+      const p=document.createElementNS(ns,'path');
+      p.setAttribute('d',d);p.setAttribute('fill',col_.fill);p.setAttribute('stroke',col_.stroke);p.setAttribute('stroke-width',col_.sw);p.setAttribute('cursor','pointer');
+      if(can.isReactive)p.classList.add('react-pulse');
+      if(isMain&&svgPathMap)svgPathMap[sl.level][can.id]=p;
+      const occN=can.slots.filter(s=>s.occ).length,emN=16-occN,rN=can.slots.filter(s=>s.react==='Reactive').length,pN=can.slots.filter(s=>s.pend).length;
+      p.addEventListener('mouseenter',e=>{let h=`<strong>${sl.name} · C${can.num}</strong><br><span style="color:#4fc3f7;">◻ ${emN} empty</span> · ${occN}/16 occupied (${Math.round(canPct(can)*100)}%)`;if(rN>0)h+=`<br><span style="color:#f0c030;">◆ ${rN} reactive</span>`;if(pN>0)h+=`<br><span style="color:#e74c3c;">⚠ ${pN} pending</span>`;showTip(e,h);});
+      p.addEventListener('mousemove',moveTip);p.addEventListener('mouseleave',hideTip);
+      p.addEventListener('click',e=>{e.stopPropagation();hideTip();if(onCan)onCan(can,sl);});
+      g.appendChild(p);
+      // dots
+      const al=(aCE-aCS-CGAP*2)*((r0+r1)/2),rl=r1-r0-2;
+      if(al>9&&rl>8){
+        const dr=Math.max(.8,Math.min(al/12,rl/5.5,1.75));
+        for(let dr2=0;dr2<4;dr2++){for(let dc=0;dc<4;dc++){
+          const idx=dr2*4+dc,s=can.slots[idx];
+          const rp=r0+2+(dr2+.5)*((r1-r0-4)/4),ap=aCS+CGAP+(dc+.5)*((aCE-aCS-CGAP*2)/4);
+          const dot=document.createElementNS(ns,'circle');
+          dot.setAttribute('cx',cx+rp*Math.cos(ap));dot.setAttribute('cy',cy+rp*Math.sin(ap));dot.setAttribute('r',dr);
+          dot.setAttribute('fill',dim?'rgba(255,255,255,.04)':!s.occ?'rgba(79,195,247,.30)':s.react==='Reactive'?'#f0c030':sl.color);
+          dot.setAttribute('pointer-events','none');g.appendChild(dot);
+        }}
+      }
+    });
+    // separator
+    const sep=document.createElementNS(ns,'line');
+    sep.setAttribute('x1',cx+innerR*Math.cos(a0));sep.setAttribute('y1',cy+innerR*Math.sin(a0));
+    sep.setAttribute('x2',cx+R*Math.cos(a0));sep.setAttribute('y2',cy+R*Math.sin(a0));
+    sep.setAttribute('stroke','#0f1117');sep.setAttribute('stroke-width','2.5');g.appendChild(sep);
+    // pie label (name + pct + pending dot)
+    const lx=cx+lblR*Math.cos(am),ly=cy+lblR*Math.sin(am);
+    const pct2=Math.round(piePct(sl)*100),pendN=piePendingCount(sl);
+    const lg=document.createElementNS(ns,'g');lg.style.cursor='pointer';
+    const nt=document.createElementNS(ns,'text');
+    nt.setAttribute('x',lx);nt.setAttribute('y',ly-5);nt.setAttribute('text-anchor','middle');nt.setAttribute('dominant-baseline','middle');
+    nt.setAttribute('font-size','10');nt.setAttribute('font-weight','700');nt.setAttribute('fill',isHl?sl.color:'rgba(160,174,192,.28)');nt.setAttribute('pointer-events','none');
+    nt.textContent=sl.short;lg.appendChild(nt);
+    const pt=document.createElementNS(ns,'text');
+    pt.setAttribute('x',lx);pt.setAttribute('y',ly+7);pt.setAttribute('text-anchor','middle');pt.setAttribute('dominant-baseline','middle');
+    pt.setAttribute('font-size','9');pt.setAttribute('font-weight','500');pt.setAttribute('fill',isHl?r2a(sl.color,.7):'rgba(160,174,192,.20)');pt.setAttribute('pointer-events','none');
+    pt.textContent=pct2+'%';lg.appendChild(pt);
+
+    const hit=document.createElementNS(ns,'circle');
+    hit.setAttribute('cx',lx);hit.setAttribute('cy',ly);hit.setAttribute('r','18');hit.setAttribute('fill','transparent');hit.setAttribute('cursor','pointer');
+    hit.addEventListener('mouseenter',e=>{const em=sl.canisters.reduce((a,c)=>a+c.slots.filter(s=>!s.occ).length,0);showTip(e,`<strong>${sl.name}</strong><br>${pct2}% utilized · <span style="color:#4fc3f7;">${em} empty</span>${pendN>0?`<br><span style="color:#e74c3c;">⚠ ${pendN} pending actions</span>`:''}`)});
+    hit.addEventListener('mousemove',moveTip);hit.addEventListener('mouseleave',hideTip);
+    hit.addEventListener('click',e=>{e.stopPropagation();hideTip();if(selPieName===sl.name){selPie=null;}else{selPie=sl.name;updateDetail('pie',sl);}if(onPie)onPie();});
+    lg.appendChild(hit);
+    g.appendChild(lg);
+    svgEl.appendChild(g);
+  });
+  const oc=document.createElementNS(ns,'circle');oc.setAttribute('cx',cx);oc.setAttribute('cy',cy);oc.setAttribute('r',R);oc.setAttribute('fill','none');oc.setAttribute('stroke','#2a3347');oc.setAttribute('stroke-width','1.5');svgEl.appendChild(oc);
+  const ic=document.createElementNS(ns,'circle');ic.setAttribute('cx',cx);ic.setAttribute('cy',cy);ic.setAttribute('r',innerR);ic.setAttribute('fill','#0f1117');ic.setAttribute('stroke','#2a3347');ic.setAttribute('stroke-width','1');svgEl.appendChild(ic);
+}
+
+function makePair(wrapId,sz){
+  const wSz=sz+56,wrap=document.getElementById(wrapId);
+  wrap.style.width=wSz+'px';wrap.style.height=wSz+'px';wrap.style.position='relative';
+  let c=wrap.querySelector('canvas');
+  if(!c){c=document.createElement('canvas');c.style.cssText='position:absolute;top:0;left:0;';wrap.appendChild(c);}
+  c.width=wSz;c.height=wSz;c.style.width=wSz+'px';c.style.height=wSz+'px';
+  let s=wrap.querySelector('svg');
+  if(!s){s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.style.cssText='position:absolute;top:0;left:0;';wrap.appendChild(s);}
+  s.setAttribute('width',wSz);s.setAttribute('height',wSz);s.setAttribute('viewBox',`0 0 ${wSz} ${wSz}`);s.style.width=wSz+'px';s.style.height=wSz+'px';
+  const cx=wSz/2,cy=wSz/2,R=sz/2-6,innerR=R*.155;
+  return{c,s,cx,cy,R,innerR};
+}
+
+function drawLevel(wId,level,sz,animIn,isMain,spn,onCan,onPie){
+  const{c,s,cx,cy,R,innerR}=makePair(wId,sz);
+  const slices=tankData.filter(x=>x.level===level);
+  const nS=slices.length,as=2*Math.PI/nS,a0=-Math.PI/2;
+  drawCircle({canEl:c,svgEl:s,slices,cx,cy,R,innerR,angStart:a0,angStep:as,animIn,isMain,selPieName:spn,onCan,onPie});
+}
+
+function availW(areaId){return Math.min((document.getElementById(areaId)?.clientWidth||600)-32-56,310);}
+
+function drawTankView(animIn){
+  const sz=availW('viewTank');
+  svgPathMap={top:{},bottom:{}};
+  drawLevel('topWrap','top',sz,animIn,true,null,(can,sl)=>selectCan(can,sl),()=>{});
+  drawLevel('botWrap','bottom',sz,animIn,true,null,(can,sl)=>selectCan(can,sl),()=>{});
+}
+
+function drawPieView(){
+  const sz=Math.min((document.getElementById('viewPie')?.clientWidth||600)-32-56,270);
+  drawLevel('pieTopWrap','top',sz,false,false,selPie,(can,sl)=>{selectCan(can,sl);setView('canister',document.getElementById('vt-canister'));},()=>{drawPieView();renderPieCanPanel();});
+  drawLevel('pieBotWrap','bottom',sz,false,false,selPie,(can,sl)=>{selectCan(can,sl);setView('canister',document.getElementById('vt-canister'));},()=>{drawPieView();renderPieCanPanel();});
+  document.getElementById('pieHint').textContent=selPie?`${selPie} highlighted — click a canister to inspect`:'Click a pie name or label to highlight · click a canister to inspect';
+  renderPieCanPanel();
+}
+
+function renderPieCanPanel(){
+  const panel=document.getElementById('pieCanPanel');
+  if(!selPie){panel.style.display='none';return;}
+  const sl=tankData.find(s=>s.name===selPie);if(!sl){panel.style.display='none';return;}
+  panel.style.display='block';
+  const pct=Math.round(piePct(sl)*100),emN=sl.canisters.reduce((a,c)=>a+canEmpty(c),0),occN=sl.canisters.reduce((a,c)=>a+c.slots.filter(s=>s.occ).length,0);
+  const specCts={};SPEC.forEach(s=>specCts[s]=0);sl.canisters.forEach(c=>c.slots.filter(s=>s.occ).forEach(s=>specCts[s.spec]++));
+  panel.innerHTML=`
+    <div class="pie-can-header">
+      <div class="pie-can-dot" style="background:${sl.color};"></div>
+      <span class="pie-can-title">${sl.name} — 16 canisters</span>
+      <div class="pie-can-stats">
+        <span style="color:#4fc3f7;">◻ ${emN} empty</span>
+        <span style="color:var(--text2);">${pct}% full</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:10px;">
+      ${Object.entries(specCts).map(([k,v])=>`<span style="color:${SPEC_C[k]};background:${r2a(SPEC_C[k],.1)};padding:2px 7px;border-radius:99px;">● ${v} ${k}</span>`).join('')}
+    </div>
+    <div class="pie-can-grid" id="pieCanGrid"></div>`;
+  const grid=document.getElementById('pieCanGrid');
+  sl.canisters.forEach(can=>{
+    const cp=Math.round(canPct(can)*100),em=canEmpty(can),hp=hasPend(can);
+    const bg=can.isReactive?r2a('#c9a800',.16):cp===0?r2a('#4fc3f7',.22):r2a(sl.color,cp/100*.55+.07);
+    const bc=can.isReactive?r2a('#c9a800',.5):cp===0?'rgba(79,195,247,.55)':r2a(sl.color,.42);
+    const cell=document.createElement('div');cell.className='pcc';
+    if(can.isReactive)cell.classList.add('react-pulse');
+    cell.style.cssText=`background:${bg};border-color:${bc};`;
+    cell.innerHTML=`<div class="pcc-num" style="color:${hp?'#e74c3c':cp===0?'#4fc3f7':'var(--text)'};">C${can.num}</div><div class="pcc-empty" style="color:${cp===0?'#4fc3f7':'var(--text3)'};">${em}▫</div>`;
+    cell.title=`C${can.num} · ${cp}% full · ${em} empty${hp?' · pending actions':''}${can.isReactive?' · reactive':''}`;
+    cell.addEventListener('click',()=>{selectCan(can,sl);setView('canister',document.getElementById('vt-canister'));});
+    grid.appendChild(cell);
+  });
+}
+
+function buildLegend(){
+  const w=document.getElementById('tankLeg');w.innerHTML='';
+  [{c:'rgba(79,195,247,.34)',bc:'rgba(79,195,247,.56)',l:'Empty'},
+   {c:'rgba(79,195,247,.14)',bc:'rgba(79,195,247,.28)',l:'Mostly empty'},
+   {c:'rgba(99,150,34,.22)',bc:'rgba(99,150,34,.38)',l:'Partially filled'},
+   {c:'rgba(99,150,34,.45)',bc:'rgba(99,150,34,.62)',l:'Near full (≥80%)'},
+   {c:'rgba(201,168,0,.14)',bc:'rgba(201,168,0,.44)',l:'Reactive'},
+   {c:'rgba(79,142,247,.85)',bc:'#4f8ef7',l:'Selected'},
+  ].forEach(it=>{const d=document.createElement('div');d.className='li';d.innerHTML=`<div class="ld" style="background:${it.c};border:1px solid ${it.bc};"></div><span>${it.l}</span>`;w.appendChild(d);});
+}
+
+function buildUtilPanel(){
+  const w=document.getElementById('utilPanel');w.innerHTML='';
+  ['top','bottom'].forEach(lv=>{
+    const sls=tankData.filter(s=>s.level===lv),pct=Math.round(levelPct(lv)*100);
+    const emN=sls.reduce((a,sl)=>a+sl.canisters.reduce((b,c)=>b+canEmpty(c),0),0),occ=sls.length*256-emN;
+    const bar=pct>=80?'#e74c3c':pct>=70?'#f0a500':'#4f8ef7';
+    const row=document.createElement('div');row.className='util-row';
+    row.innerHTML=`<div class="ut-dot" style="background:${bar};"></div>
+      <div style="flex:1;min-width:0;"><div class="ut-label">${lv==='top'?'Top level':'Bottom level'}</div>
+      <div class="ut-sub"><span style="color:#4fc3f7;">${emN} empty</span> · ${occ} occupied</div></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${bar};"></div></div>
+      <span class="spct ${pct>=80?'danger':pct>=70?'warn':''}">${pct}%</span>
+      <span id="chev-${lv}" style="font-size:11px;color:var(--text3);margin-left:4px;">▸</span>`;
+    const exp=document.createElement('div');exp.className='util-expand';exp.id='exp-'+lv;
+    sls.forEach(sl=>{
+      const sp=Math.round(piePct(sl)*100),se=sl.canisters.reduce((a,c)=>a+canEmpty(c),0);
+      const sb=sp>=80?'#e74c3c':sp>=70?'#f0a500':sl.color;
+      const sub=document.createElement('div');sub.className='pie-sub-row';
+      sub.innerHTML=`<div class="ps-dot" style="background:${sl.color};"></div><span class="ps-name">${sl.name}</span>
+        <div class="ps-bar"><div class="ps-fill" style="width:${sp}%;background:${sb};"></div></div>
+        <span class="ps-pct" style="color:${sp>=80?'#e74c3c':sp>=70?'#f0a500':'var(--text3)'};">${sp}%</span>
+        <span class="ps-empty">${se}▫</span>`;
+      sub.addEventListener('click',()=>{selPie=sl.name;updateDetail('pie',sl);setView('pie',document.getElementById('vt-pie'));});
+      exp.appendChild(sub);
+    });
+    row.addEventListener('click',()=>{
+      const isO=exp.classList.contains('open');
+      document.querySelectorAll('.util-expand').forEach(e=>e.classList.remove('open'));
+      document.querySelectorAll('[id^="chev-"]').forEach(e=>e.textContent='▸');
+      if(!isO){exp.classList.add('open');document.getElementById('chev-'+lv).textContent='▾';}
+    });
+    w.appendChild(row);w.appendChild(exp);
+  });
+}
+
+function buildVelPanel(){
+  const w=document.getElementById('velPanel');w.innerHTML='';
+  const data=getVelData(),ti=data.reduce((a,v)=>a+v.i,0),to=data.reduce((a,v)=>a+v.o,0),net=ti-to;
+  const sum=document.createElement('div');sum.className='vel-summary';
+  sum.innerHTML=`<div class="vel-stat"><div class="vel-stat-label">In</div><div class="vel-stat-val" style="color:#e74c3c;">+${ti}</div></div>
+    <div class="vel-stat"><div class="vel-stat-label">Out</div><div class="vel-stat-val" style="color:#2ecc71;">−${to}</div></div>
+    <div class="vel-stat"><div class="vel-stat-label">Net</div><div class="vel-stat-val" style="color:${net>0?'#e74c3c':net<0?'#2ecc71':'var(--text2)'};font-size:${Math.abs(net)>99?'16px':'18px'}">${net>0?'+':''}${net}</div></div>`;
+  w.appendChild(sum);
+  const mx=Math.max(...data.map(v=>Math.max(v.i,v.o)),1);
+  const ch=document.createElement('div');ch.className='vel-chart';
+  data.forEach(wk=>{
+    const ih=Math.max(2,Math.round((wk.i/mx)*46)),oh=Math.max(2,Math.round((wk.o/mx)*46));
+    const col=document.createElement('div');col.className='vel-col';
+    col.innerHTML=`<div class="vel-bars"><div class="vel-b-in" style="height:${ih}px;" title="In:${wk.i}"></div><div class="vel-b-out" style="height:${oh}px;" title="Out:${wk.o}"></div></div><div class="vel-wlbl">${wk.l}</div>`;
+    ch.appendChild(col);
+  });
+  w.appendChild(ch);
+  const lg=document.createElement('div');lg.className='vel-legend';
+  lg.innerHTML=`<div class="li"><div class="ld" style="background:rgba(231,76,60,.55);border-radius:2px;"></div><span>In</span></div>
+    <div class="li"><div class="ld" style="background:rgba(46,204,113,.55);border-radius:2px;"></div><span>Out</span></div>`;
+  w.appendChild(lg);
+}
+
+function buildPending(){
+  const w=document.getElementById('pendingList');w.innerHTML='';
+  document.getElementById('pendCount').textContent=PENDING_DATA.length;
+  PENDING_DATA.slice(0,5).forEach(p=>{
+    const bc=p.type==='transport'?'b-info':p.type==='terminate'?'b-danger':'b-warn';
+    const bt=p.type==='transport'?'Transport':p.type==='terminate'?'Terminate':'Pending';
+    const d=document.createElement('div');d.className='pend-item';
+    d.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px;">
+      <div><div class="pname">${p.name}</div><div class="ploc">${fmtDateStr(p.date)} · ${p.loc}</div></div>
+      <span class="badge ${bc}" style="white-space:nowrap;flex-shrink:0;">${bt}</span></div>`;
+    d.addEventListener('click',()=>navToPending(p));w.appendChild(d);
+  });
+  const btn=document.createElement('button');btn.className='see-all';btn.textContent=`View all ${PENDING_DATA.length} pending ↗`;
+  btn.onclick=()=>alert('Full list in CryoFuture One.');w.appendChild(btn);
+}
+
+function buildChangeLog(){
+  const w=document.getElementById('changeLog');w.innerHTML='';
+  CHANGE_LOG.forEach(e=>{
+    const row=document.createElement('div');row.className='log-item';
+    row.innerHTML=`<span class="log-time">${e.t}</span>
+      <div class="log-icon" style="background:${r2a(e.cl,.15)};color:${e.cl};">${e.ic}</div>
+      <div class="log-body"><div class="log-action">${e.a}</div><div class="log-detail">${e.d}</div></div>`;
+    w.appendChild(row);
+  });
+  const b=document.createElement('button');b.className='see-all';b.textContent='View full audit trail ↗';b.onclick=()=>alert('Full audit trail in CryoFuture One.');w.appendChild(b);
+}
+
+function buildCalView(){
+  const w=document.getElementById('calContent');w.innerHTML='';
+  const y=calViewDate.getFullYear(),m=calViewDate.getMonth();
+  const mn=calViewDate.toLocaleString('default',{month:'long',year:'numeric'});
+  const hdr=document.createElement('div');hdr.className='cal-header';
+  hdr.innerHTML=`<button class="cal-nav" onclick="calNav(-1)">‹</button><span class="cal-month">${mn}</span><button class="cal-nav" onclick="calNav(1)">›</button>`;
+  w.appendChild(hdr);
+  const grid=document.createElement('div');grid.className='cal-grid';
+  ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d=>{const h=document.createElement('div');h.className='cal-day-hdr';h.textContent=d;grid.appendChild(h);});
+  const fd=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate(),dip=new Date(y,m,0).getDate();
+  const today=new Date();
+  const evMap={};
+  PENDING_DATA.forEach(p=>{const d=new Date(p.date);if(d.getFullYear()===y&&d.getMonth()===m){const k=d.getDate();if(!evMap[k])evMap[k]=[];evMap[k].push(p);}});
+  for(let i=fd-1;i>=0;i--){const c=document.createElement('div');c.className='cal-day other-month';c.textContent=dip-i;grid.appendChild(c);}
+  for(let d=1;d<=dim;d++){
+    const c=document.createElement('div');c.className='cal-day';
+    const isT=today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d;if(isT)c.classList.add('today');
+    c.textContent=d;
+    const evs=evMap[d];
+    if(evs){
+      c.classList.add('has-event');
+      const dots=document.createElement('div');dots.className='cal-dots';
+      evs.slice(0,4).forEach(e=>{const dot=document.createElement('span');dot.className='cal-dot';dot.style.background=e.type==='transport'?'#4f8ef7':e.type==='terminate'?'#e74c3c':'#f0a500';dots.appendChild(dot);});
+      c.appendChild(dots);
+    }
+    grid.appendChild(c);
+  }
+  const rem=(7-(fd+dim)%7)%7;for(let d=1;d<=rem;d++){const c=document.createElement('div');c.className='cal-day other-month';c.textContent=d;grid.appendChild(c);}
+  w.appendChild(grid);
+  const lg=document.createElement('div');lg.className='cal-legend';
+  [{c:'#4f8ef7',l:'Transport'},{c:'#e74c3c',l:'Termination'},{c:'#f0a500',l:'Pending'}].forEach(it=>{const d=document.createElement('div');d.className='li';d.innerHTML=`<div class="ld" style="background:${r2a(it.c,.55)};border-radius:50%;"></div><span>${it.l}</span>`;lg.appendChild(d);});
+  w.appendChild(lg);
+  const upcoming=PENDING_DATA.filter(p=>{const d=new Date(p.date);return d.getFullYear()===y&&d.getMonth()===m;}).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  if(upcoming.length){
+    const el=document.createElement('div');el.className='cal-events-list';
+    const hd=document.createElement('div');hd.style.cssText='font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-weight:500;';hd.textContent='This month';el.appendChild(hd);
+    upcoming.forEach(p=>{
+      const bc=p.type==='transport'?'#4f8ef7':p.type==='terminate'?'#e74c3c':'#f0a500';
+      const row=document.createElement('div');row.className='cal-ev-item';
+      row.innerHTML=`<span class="cal-ev-date" style="color:${bc};">${fmtDateStr(p.date)}</span>
+        <div class="cal-ev-body"><div class="cal-ev-name">${p.name}</div><div class="cal-ev-loc">${p.loc}</div></div>
+        <span class="badge" style="background:${r2a(bc,.15)};color:${bc};white-space:nowrap;flex-shrink:0;">${p.type==='transport'?'Transport':p.type==='terminate'?'Terminate':'Pending'}</span>`;
+      row.addEventListener('click',()=>navToPending(p));
+      el.appendChild(row);
+    });
+    w.appendChild(el);
+  }
+}
+window.calNav=function(dir){calViewDate=new Date(calViewDate.getFullYear(),calViewDate.getMonth()+dir,1);buildCalView();}
+
+function buildFindView(){
+  const w=document.getElementById('findContent');w.innerHTML='';
+  const intro=document.createElement('p');intro.className='find-intro';intro.textContent='Select a specimen type to get ranked placement recommendations based on available space, clinic grouping, and existing specimen types in each canister.';w.appendChild(intro);
+  const ff=document.createElement('div');ff.className='find-filters';
+  SPEC.forEach(s=>{const b=document.createElement('button');b.className='spec-btn';b.textContent=s;b.style.borderColor=r2a(SPEC_C[s],.4);b.addEventListener('click',()=>{document.querySelectorAll('.spec-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');runPlacement(s);});ff.appendChild(b);});
+  w.appendChild(ff);
+  const res=document.createElement('div');res.id='findResults';w.appendChild(res);
+}
+
+function runPlacement(spec){
+  const res=document.getElementById('findResults');res.innerHTML='';
+  const scored=[];
+  tankData.forEach(sl=>sl.canisters.forEach(can=>{
+    const em=canEmpty(can);if(em===0)return;
+    const same=can.slots.filter(s=>s.occ&&s.spec===spec).length;
+    let sc=em*4+same*3-(can.isReactive?10:0)-(canPct(can)>.85?5:0);
+    const reasons=[];
+    if(em>=8)reasons.push(`${em} empty slots`);if(same>0)reasons.push(`${same} ${spec.split(' ')[0]} already here`);
+    if(canPct(can)<.3)reasons.push('low utilization');if(!can.isReactive)reasons.push('non-reactive');if(sl.level==='top')reasons.push('top level');
+    scored.push({can,sl,sc,em,reasons});
+  }));
+  scored.sort((a,b)=>b.sc-a.sc);
+  scored.slice(0,5).forEach((item,i)=>{
+    const rank=i+1,sc=rank===1?'var(--green)':rank===2?'var(--accent)':'var(--amber)';
+    const div=document.createElement('div');div.className=`place-rec r${Math.min(rank,3)}`;
+    div.innerHTML=`<div class="pr-top"><span class="pr-rank">#${rank} recommended</span><span class="pr-score" style="color:${sc};">Score ${item.sc}</span></div>
+      <div class="pr-name">${item.sl.name} · Canister ${item.can.num}</div>
+      <div class="pr-detail">${item.em} empty slots · ${Math.round(canPct(item.can)*100)}% full</div>
+      <div class="pr-tags">${item.reasons.map(r=>`<span class="pr-tag">${r}</span>`).join('')}</div>`;
+    div.addEventListener('click',()=>{selectCan(item.can,item.sl);setView('tank',document.getElementById('vt-tank'));setTimeout(()=>{const p=svgPathMap[item.sl.level]&&svgPathMap[item.sl.level][item.can.id];if(p){p.classList.add('locate-flash');p.addEventListener('animationend',()=>p.classList.remove('locate-flash'),{once:true});}},100);});
+    res.appendChild(div);
+  });
+}
+
+/* search */
+function onSearch(){
+  const q=document.getElementById('searchInput').value.trim().toLowerCase();
+  const res=document.getElementById('searchResults');
+  if(q.length<2){res.classList.remove('open');return;}
+  const hits=[];
+  tankData.forEach(sl=>sl.canisters.forEach(can=>can.slots.forEach(s=>{
+    if(!s.occ)return;
+    if([s.name,s.clinic,s.spec,s.pie].some(f=>f&&f.toLowerCase().includes(q)))hits.push({s,can,sl});
+  })));
+  res.innerHTML='';
+  if(!hits.length){res.innerHTML='<div style="padding:10px 12px;font-size:11px;color:var(--text3);">No results found</div>';res.classList.add('open');return;}
+  hits.slice(0,8).forEach(({s,can,sl})=>{
+    const div=document.createElement('div');div.className='sr-item';
+    div.innerHTML=`<div class="sr-name">${s.name}</div><div class="sr-meta"><span style="color:${SPEC_C[s.spec]||'var(--text2)'};">● ${s.spec}</span> &nbsp;${sl.name} · C${can.num} · S${s.id}</div>`;
+    div.addEventListener('click',()=>{closeSearch();selectCan(can,sl);setView('tank',document.getElementById('vt-tank'));setTimeout(()=>{const p=svgPathMap[sl.level]&&svgPathMap[sl.level][can.id];if(p){p.classList.add('search-highlight');p.addEventListener('animationend',()=>p.classList.remove('search-highlight'),{once:true});}},100);});
+    res.appendChild(div);
+  });
+  if(hits.length>8){const m=document.createElement('div');m.style.cssText='padding:6px 10px;font-size:10px;color:var(--text3);border-top:1px solid var(--border);';m.textContent=`+${hits.length-8} more`;res.appendChild(m);}
+  res.classList.add('open');
+}
+function closeSearch(){document.getElementById('searchResults').classList.remove('open');}
+
+/* panel toggle */
+function togglePanel(hdr){
+  const body=hdr.nextElementSibling;
+  const chev=hdr.querySelector('.panel-chev');
+  if(!body||!chev)return;
+  const open=!body.classList.contains('collapsed');
+  body.classList.toggle('collapsed',open);
+  chev.classList.toggle('open',!open);
+}
+
+/* breadcrumb helpers */
+function makeBreadcrumb(parts){
+  // parts: [{label, onclick}]
+  const bc=document.createElement('div');bc.className='breadcrumb';
+  parts.forEach((p,i)=>{
+    const seg=document.createElement('span');seg.className='bc-seg'+(i===parts.length-1?' active':'');
+    seg.textContent=p.label;if(p.onclick&&i<parts.length-1)seg.addEventListener('click',p.onclick);
+    bc.appendChild(seg);
+    if(i<parts.length-1){const sep=document.createElement('span');sep.className='bc-sep';sep.textContent='›';bc.appendChild(sep);}
+  });
+  return bc;
+}
+
+/* navigation */
+function navToPending(p){
+  const sl=tankData.find(s=>s.name===p.pieName);if(!sl)return;
+  const can=sl.canisters.find(c=>c.num===p.canNum);if(!can)return;
+  selectCan(can,sl);setView('tank',document.getElementById('vt-tank'));
+  setTimeout(()=>{const path=svgPathMap[sl.level]&&svgPathMap[sl.level][can.id];if(path){path.classList.add('locate-flash');path.addEventListener('animationend',()=>path.classList.remove('locate-flash'),{once:true});}},120);
+}
+
+function selectCan(can,sl){
+  selCan=can;selSlot=null;if(sl)selPie=sl.name;
+  if(curView==='tank')drawTankView(false);
+  else if(curView==='pie'){drawPieView();}
+  updateDetail('canister',can);
+}
+
+function setView(v,btn){
+  curView=v;
+  document.querySelectorAll('.vt-btn,.tool-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  ['Tank','Pie','Canister','Slot','Calendar','Findspace'].forEach(id=>{
+    const el=document.getElementById('view'+id);if(el)el.classList.toggle('hidden',id.toLowerCase()!==v);
+  });
+  if(v==='tank')drawTankView(false);
+  else if(v==='pie')drawPieView();
+  else if(v==='canister'){if(selCan)renderCanView();else{document.getElementById('canisterContent').innerHTML='<p style="font-size:11px;color:var(--text3);">Select a pie first.</p>';}}
+  else if(v==='slot'){if(selCan)renderSlotView();else{document.getElementById('slotContent').innerHTML='<p style="font-size:11px;color:var(--text3);">Select a canister first.</p>';}}
+  else if(v==='calendar')buildCalView();
+  else if(v==='findspace')buildFindView();
+}
+
+function renderCanView(){
+  if(!selCan)return;
+  const can=selCan,w=document.getElementById('canisterContent');w.innerHTML='';
+  const occ=can.slots.filter(s=>s.occ).length,pct=Math.round(occ/16*100),pend=can.slots.filter(s=>s.pend).length,em=16-occ;
+  const bc=makeBreadcrumb([
+    {label:can.pieName,onclick:()=>setView('pie',document.getElementById('vt-pie'))},
+    {label:`Canister ${can.num}`,onclick:null}
+  ]);
+  w.appendChild(bc);
+  const hdr=document.createElement('div');hdr.style.marginBottom='10px';
+  const specCts={};SPEC.forEach(s=>specCts[s]=0);can.slots.filter(s=>s.occ).forEach(s=>specCts[s.spec]++);
+  hdr.innerHTML=`<div style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:6px;">${can.pieName} · Canister ${can.num}</div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">
+      <span class="badge b-empty">◻ ${em} empty</span>
+      <span class="badge ${pct>=80?'b-cap':pct>=60?'b-warn':'b-ok'}">${occ}/16 · ${pct}%</span>
+      ${pend?`<span class="badge b-danger">⚠ ${pend} pending</span>`:''}
+      ${can.isReactive?'<span class="badge b-reactive">◆ Reactive</span>':''}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:10px;">
+      ${Object.entries(specCts).filter(([,v])=>v>0).map(([k,v])=>`<span style="color:${SPEC_C[k]};background:${r2a(SPEC_C[k],.12)};padding:2px 7px;border-radius:99px;">● ${v} ${k}</span>`).join('')}
+    </div>`;
+  w.appendChild(hdr);
+  const gt=document.createElement('div');gt.style.cssText='font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;';gt.textContent='Slot map — click a slot for details';w.appendChild(gt);
+  const g=document.createElement('div');g.className='can-grid';g.style.maxWidth='340px';
+  can.slots.forEach(sl=>{
+    let bg='rgba(79,195,247,.13)',bc2='rgba(79,195,247,.35)',tc='#4fc3f7';
+    if(sl.pend){bg=r2a('#e74c3c',.18);bc2='#e74c3c';tc='#ff6b5b';}
+    else if(sl.occ&&sl.react==='Reactive'){bg=r2a('#c9a800',.18);bc2='#c9a800';tc='#c9a800';}
+    else if(sl.occ){bg=r2a(can.pieColor,.18);bc2=r2a(can.pieColor,.55);tc=can.pieColor;}
+    const cell=document.createElement('div');cell.className='can-cell';
+    cell.style.cssText=`background:${bg};border-color:${bc2};color:${tc};`;
+    const sp=sl.occ&&sl.spec?sl.spec.split(' ')[0]:'';
+    cell.innerHTML=`<div class="cc-num">${sl.id}</div><div class="cc-empty">${sl.occ?`${sp}`:'◻ open'}</div>`;
+    cell.title=sl.occ?`Slot ${sl.id} · ${sl.spec} · ${sl.name||''}`:`Slot ${sl.id} · Empty`;
+    cell.addEventListener('click',()=>{selSlot=sl;updateDetail('slot',sl,can);setView('slot',document.getElementById('vt-slot'));});
+    g.appendChild(cell);
+  });
+  w.appendChild(g);
+  const locBtn=document.createElement('button');locBtn.className='locate-btn';locBtn.textContent='⊙ Locate on tank';
+  locBtn.onclick=()=>{setView('tank',document.getElementById('vt-tank'));setTimeout(()=>{const slObj=tankData.find(s=>s.name===can.pieName);if(!slObj)return;const p=svgPathMap[slObj.level]&&svgPathMap[slObj.level][can.id];if(p){p.classList.add('locate-flash');p.addEventListener('animationend',()=>p.classList.remove('locate-flash'),{once:true});}},100);};
+  w.appendChild(locBtn);
+}
+
+function renderSlotView(){
+  if(!selCan)return;
+  const can=selCan,w=document.getElementById('slotContent');w.innerHTML='';
+  w.style.display='flex';w.style.flexDirection='column';
+  const bc=makeBreadcrumb([
+    {label:can.pieName,onclick:()=>setView('pie',document.getElementById('vt-pie'))},
+    {label:`Canister ${can.num}`,onclick:()=>setView('canister',document.getElementById('vt-canister'))},
+    {label:'Slots',onclick:null}
+  ]);
+  w.appendChild(bc);
+  const em=can.slots.filter(s=>!s.occ).length;
+  const banner=document.createElement('div');banner.className='empty-banner';banner.textContent=`◻ ${em} empty slot${em!==1?'s':''} available`;w.appendChild(banner);
+  const fbar=document.createElement('div');fbar.className='stbl-header';
+  fbar.innerHTML=`<select class="stbl-filter" id="fSpec" onchange="renderSlotView()"><option value="">All types</option>${SPEC.map(s=>`<option>${s}</option>`).join('')}</select>
+    <select class="stbl-filter" id="fReact" onchange="renderSlotView()"><option value="">All reactivity</option><option>Reactive</option><option>Non-reactive</option></select>
+    <select class="stbl-filter" id="fStatus" onchange="renderSlotView()"><option value="">All status</option><option value="pend">Pending</option><option value="occ">Occupied</option><option value="empty">Empty</option></select>`;
+  const eb=document.createElement('button');eb.className='export-btn';eb.textContent='⬇ Export CSV';eb.addEventListener('click',()=>exportCSV(can));fbar.appendChild(eb);
+  w.appendChild(fbar);
+  const tw=document.createElement('div');tw.className='stbl-wrap';
+  const tbl=document.createElement('table');tbl.className='stbl';
+  tbl.innerHTML=`<thead><tr><th>#</th><th>Patient</th><th>DOB</th><th>Specimen</th><th>Received</th><th>Frozen</th><th>RFID</th><th>Clinic</th><th>Reactivity</th><th>Tank</th><th>Pie</th><th>Canister</th><th>Slot</th><th>Status</th></tr></thead>`;
+  const tbody=document.createElement('tbody');
+  const fS=document.getElementById('fSpec')?.value||'',fR=document.getElementById('fReact')?.value||'',fSt=document.getElementById('fStatus')?.value||'';
+  can.slots.forEach(sl=>{
+    if(fS&&sl.spec!==fS)return;if(fR&&sl.react!==fR)return;
+    if(fSt==='pend'&&!sl.pend)return;if(fSt==='occ'&&(!sl.occ||sl.pend))return;if(fSt==='empty'&&sl.occ)return;
+    const tr=document.createElement('tr');if(selSlot&&selSlot.id===sl.id)tr.className='sel';
+    if(!sl.occ){tr.innerHTML=`<td class="col-mono">${sl.id}</td><td class="col-empty" colspan="12">— available —</td><td><span class="badge b-empty">Empty</span></td>`;}
+    else{const rb=sl.react==='Reactive'?'b-reactive':'b-ok';
+      tr.innerHTML=`<td class="col-mono">${sl.id}</td><td class="col-name">${sl.name}</td><td class="col-mono">${sl.dob}</td>
+        <td style="color:${SPEC_C[sl.spec]||'var(--text2)'};">${sl.spec}</td>
+        <td class="col-mono">${sl.received}</td><td class="col-mono">${sl.frozen}</td>
+        <td class="col-mono" style="font-size:9px;">${sl.rfid}</td>
+        <td style="color:var(--text2);">${sl.clinic}</td>
+        <td><span class="badge ${rb}">${sl.react}</span></td>
+        <td class="col-mono">${sl.tank}</td><td style="color:var(--text2);">${sl.pie}</td>
+        <td class="col-mono">${sl.canister}</td><td class="col-mono">${sl.slot}</td>
+        <td>${sl.pend?'<span class="badge b-danger">Pending</span>':'<span class="badge b-ok">Active</span>'}</td>`;}
+    tr.addEventListener('click',()=>{selSlot=sl;updateDetail('slot',sl,can);tr.className='sel';document.querySelectorAll('.stbl tbody tr').forEach(r=>{if(r!==tr)r.className='';});});
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);tw.appendChild(tbl);w.appendChild(tw);
+  // scroll selected row into view after render
+  setTimeout(()=>{const sel=tw.querySelector('tr.sel');if(sel)sel.scrollIntoView({block:'center',behavior:'smooth'});},60);
+}
+
+function exportCSV(can){
+  const rows=[['Slot','Patient','DOB','Specimen','Received','Frozen','RFID','Clinic','Reactivity','Tank','Pie','Canister','Slot Ref','Status']];
+  can.slots.forEach(s=>rows.push([s.id,s.name||'',s.dob||'',s.spec||'',s.received||'',s.frozen||'',s.rfid||'',s.clinic||'',s.react||'',s.tank||'',s.pie||'',s.canister||'',s.slot||'',s.pend?'Pending':s.occ?'Active':'Empty']));
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download=`${can.pieName.replace(/ /g,'_')}_C${can.num}_slots.csv`;a.click();
+}
+
+function updateDetail(type,data,can){
+  const titleEl=document.getElementById('detailTitle'),body=document.getElementById('detailBody');
+  // open panel if collapsed
+  const panelBody=body;const panelHdr=panelBody.previousElementSibling;
+  if(panelBody.classList.contains('collapsed')){panelBody.classList.remove('collapsed');const chev=panelHdr.querySelector('.panel-chev');if(chev)chev.classList.add('open');}
+  titleEl.textContent=type==='pie'?data.name:type==='canister'?`C${data.num} · ${data.pieName}`:type==='slot'?`Slot ${data.id}`:'Details';
+  if(type==='pie'){
+    const sl=data,pct=Math.round(piePct(sl)*100),occ=sl.canisters.reduce((a,c)=>a+c.slots.filter(s=>s.occ).length,0);
+    const emN=256-occ,pend=sl.canisters.reduce((a,c)=>a+c.slots.filter(s=>s.pend).length,0),react=sl.canisters.reduce((a,c)=>a+c.slots.filter(s=>s.react==='Reactive'&&s.occ).length,0);
+    const specCts={};SPEC.forEach(s=>specCts[s]=0);sl.canisters.forEach(c=>c.slots.filter(s=>s.occ).forEach(s=>specCts[s.spec]++));
+    body.innerHTML=`${pct>=80?'<div class="cap-warn-box">⚠ At 80%+ threshold. Plan for additional tank capacity.</div>':''}
+    <div class="mini-grid">
+      <div class="ms"><div class="ms-l">Empty</div><div class="ms-v" style="color:#4fc3f7;">${emN}</div></div>
+      <div class="ms"><div class="ms-l">Occupied</div><div class="ms-v">${occ}</div></div>
+      <div class="ms"><div class="ms-l">Reactive</div><div class="ms-v" style="color:${react>0?'#f0c030':'var(--text)'};">${react}</div></div>
+      <div class="ms"><div class="ms-l">Pending</div><div class="ms-v" style="color:${pend>0?'#e74c3c':'var(--text)'};">${pend}</div></div>
+    </div>
+    <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Specimen breakdown</div>
+    ${Object.entries(specCts).map(([k,v])=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:11px;"><div style="width:6px;height:6px;border-radius:50%;background:${SPEC_C[k]};flex-shrink:0;"></div><span style="flex:1;color:var(--text2);">${k}</span><span style="font-family:'DM Mono',monospace;color:${SPEC_C[k]};">${v}</span></div>`).join('')}`;
+  } else if(type==='canister'){
+    const c=data,occ=c.slots.filter(s=>s.occ).length,pct=Math.round(occ/16*100),pend=c.slots.filter(s=>s.pend).length,em=16-occ;
+    const bc=makeBreadcrumb([{label:c.pieName,onclick:()=>{selPie=c.pieName;setView('pie',document.getElementById('vt-pie'));}},{label:`C${c.num}`,onclick:null}]);
+    body.innerHTML='';body.appendChild(bc);
+    const rest=document.createElement('div');
+    rest.innerHTML=`<div class="mini-grid">
+      <div class="ms"><div class="ms-l">Empty</div><div class="ms-v" style="color:#4fc3f7;">${em}</div></div>
+      <div class="ms"><div class="ms-l">Occupied</div><div class="ms-v">${occ}</div></div>
+      ${pend?`<div class="ms"><div class="ms-l">Pending</div><div class="ms-v" style="color:#e74c3c;">${pend}</div></div>`:''}
+    </div>
+    <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Slot map</div>
+    <div id="ds-grid" class="slot-mini-grid" style="max-width:150px;"></div>`;
+    body.appendChild(rest);
+    const sg=document.getElementById('ds-grid');
+    c.slots.forEach(sl=>{
+      let bg='rgba(79,195,247,.13)',bc2='rgba(79,195,247,.35)',tc='#4fc3f7';
+      if(sl.pend){bg=r2a('#e74c3c',.18);bc2='#e74c3c';tc='#ff6b5b';}
+      else if(sl.occ&&sl.react==='Reactive'){bg=r2a('#c9a800',.18);bc2='#c9a800';tc='#c9a800';}
+      else if(sl.occ){bg=r2a(c.pieColor,.18);bc2=r2a(c.pieColor,.55);tc=c.pieColor;}
+      const cell=document.createElement('div');cell.className='smc';cell.style.cssText=`background:${bg};border-color:${bc2};color:${tc};`;cell.textContent=sl.id;
+      cell.addEventListener('click',()=>{selSlot=sl;updateDetail('slot',sl,c);setView('slot',document.getElementById('vt-slot'));});
+      sg.appendChild(cell);
+    });
+  } else if(type==='slot'){
+    const sl=data,c=can||selCan;
+    const bc=makeBreadcrumb([
+      {label:c?c.pieName:'',onclick:()=>{if(c){selPie=c.pieName;setView('pie',document.getElementById('vt-pie'));}}},
+      {label:c?`C${c.num}`:'',onclick:()=>setView('canister',document.getElementById('vt-canister'))},
+      {label:`Slot ${sl.id}`,onclick:null}
+    ]);
+    body.innerHTML='';body.appendChild(bc);
+    if(!sl.occ){
+      body.innerHTML+=`<div style="background:rgba(79,195,247,.08);border:1px solid rgba(79,195,247,.2);border-radius:5px;padding:16px;text-align:center;margin-top:6px;"><div style="font-size:22px;color:#4fc3f7;margin-bottom:5px;">◻</div><div style="font-size:12px;color:#4fc3f7;font-weight:500;">Empty — available</div></div>`;
+    } else {
+      const rb=sl.react==='Reactive'?'b-reactive':'b-ok';
+      const rows=document.createElement('div');
+      rows.innerHTML=`${sl.pend?'<div class="cap-warn-box">⚠ Pending action on this slot</div>':''}
+        <div class="drow"><span class="dk">Patient</span><span class="dv">${sl.name}</span></div>
+        <div class="drow"><span class="dk">DOB</span><span class="dv">${sl.dob}</span></div>
+        <div class="drow"><span class="dk">Specimen</span><span class="dv" style="color:${SPEC_C[sl.spec]};">${sl.spec}</span></div>
+        <div class="drow"><span class="dk">Received</span><span class="dv">${sl.received}</span></div>
+        <div class="drow"><span class="dk">Frozen</span><span class="dv">${sl.frozen}</span></div>
+        <div class="drow"><span class="dk">RFID</span><span class="dv" style="font-family:'DM Mono',monospace;font-size:9px;word-break:break-all;">${sl.rfid}</span></div>
+        <div class="drow"><span class="dk">Clinic</span><span class="dv">${sl.clinic}</span></div>
+        <div class="drow"><span class="dk">Reactivity</span><span class="dv"><span class="badge ${rb}">${sl.react}</span></span></div>
+        <div class="drow"><span class="dk">Location</span><span class="dv" style="font-size:10px;">${sl.tank} · ${sl.pie} · ${sl.canister} · ${sl.slot}</span></div>
+        <div class="drow"><span class="dk">Status</span><span class="dv">${sl.pend?'<span class="badge b-danger">Pending</span>':'<span class="badge b-ok">Active</span>'}</span></div>`;
+      body.appendChild(rows);
+    }
+  }
+}
+
+function hardReset(){
+  selPie=null;selCan=null;selSlot=null;curView='tank';
+  document.getElementById('detailTitle').textContent='Details';
+  document.getElementById('detailBody').innerHTML='<div class="detail-ph"><div class="detail-ph-icon">○</div><div class="detail-ph-text">Click any canister to inspect its slots and specimen data.</div></div>';
+  setView('tank',document.getElementById('vt-tank'));
+  buildData();updateKPIs();buildTankMeta();drawTankView(true);buildLegend();buildUtilPanel();buildVelPanel();buildPending();buildChangeLog();
+}
+function rebuildAll(){
+  buildData();updateKPIs();buildTankMeta();buildLegend();buildUtilPanel();buildVelPanel();buildPending();buildChangeLog();
+  if(curView==='tank')drawTankView(true);
+  else if(curView==='pie')drawPieView();
+  else if(curView==='calendar')buildCalView();
+  else if(curView==='findspace')buildFindView();
+}
+
+buildData();updateKPIs();buildTankMeta();
+setTimeout(()=>drawTankView(true),80);
+buildLegend();buildUtilPanel();buildVelPanel();buildPending();buildChangeLog();
+window.addEventListener('resize',()=>{if(curView==='tank')drawTankView(false);else if(curView==='pie')drawPieView();});
+</script>
+</body>
+</html>

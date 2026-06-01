@@ -498,6 +498,9 @@ html, body {
     white-space: nowrap;
     font-size: 12.5px;
   }
+  /* Scroll region for tables — bounded height makes the sticky header engage */
+  .cf-scroll { overflow: auto; max-height: calc(100vh - 240px); }
+  table.cf thead th { position: sticky; top: 0; z-index: 3; }
   table.cf tbody tr { transition: background .08s; }
   table.cf tbody tr:hover td { background: rgba(255,255,255,0.015); }
   table.cf tbody tr:last-child td { border-bottom: none; }
@@ -526,6 +529,8 @@ html, body {
   .badge.flagged   { background: rgba(250,204,21,0.08); color: var(--warning-yellow); border: 1px solid rgba(250,204,21,0.28); }
   .badge.completed { background: rgba(34,197,94,0.08); color: #4ade80; border: 1px solid rgba(34,197,94,0.22); }
   .badge.manual    { background: rgba(202,191,253,0.06); color: var(--purple-300); border: 1px solid rgba(202,191,253,0.18); }
+  .badge.tagbound  { background: rgba(34,197,94,0.08); color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+  .badge.awaittag  { background: rgba(250,204,21,0.08); color: var(--warning-yellow); border: 1px solid rgba(250,204,21,0.28); }
   .badge .dotty    { width: 5px; height: 5px; border-radius: 9999px; background: currentColor; }
 
   /* Action cell */
@@ -1612,7 +1617,7 @@ function DiscrepancyView({ rows, onClose, onOpenCane }) {
         </div>
       ) : (
         <div className="table-wrap">
-          <div style={{overflowX:'auto'}}>
+          <div className="cf-scroll">
             <table className="cf">
               <thead>
                 <tr>
@@ -2786,16 +2791,18 @@ function SearchBox({ value, onChange, resultCount, totalCount }) {
 }
 
 /* -------------------- Identification Table -------------------- */
-function IdentificationTable({ rows, onIdentify, onOpenDrawer, openRowId }) {
+function IdentificationTable({ rows, onIdentify, onOpenDrawer, openRowId, search }) {
+  const searchActive = !!(search && search.trim());
   return (
     <div className="table-wrap">
-      <div style={{overflowX:'auto'}}>
+      <div className="cf-scroll">
       <table className="cf">
         <thead>
           <tr>
             <th style={{width:130}}>Action</th>
             <th>Patient</th>
             <th>MRN</th>
+            <th>DOB</th>
             <th>Clinic Name</th>
             <th>Specimen Type(s)</th>
             <th>Facility</th>
@@ -2804,7 +2811,16 @@ function IdentificationTable({ rows, onIdentify, onOpenDrawer, openRowId }) {
         </thead>
         <tbody>
           {rows.length === 0 && (
-            <tr><td colSpan={7} style={{padding:'30px 16px',color:'#6b7280',textAlign:'center'}}>No canes match this filter.</td></tr>
+            searchActive ? (
+              <tr><td colSpan={8} style={{padding:'30px 16px',color:'#6b7280',textAlign:'center'}}>No canes match "{search.trim()}".</td></tr>
+            ) : (
+              <tr><td colSpan={8} style={{padding:'34px 16px',textAlign:'center'}}>
+                <div style={{display:'inline-flex',alignItems:'center',gap:8,color:'#4ade80',fontWeight:600,fontSize:13}}>
+                  <Icon.Check size={13}/>All canes identified for this shipper
+                </div>
+                <div style={{color:'#6b7280',fontSize:12,marginTop:6}}>Identified canes have moved to Assigned. Select the next shipper to continue.</div>
+              </td></tr>
+            )
           )}
           {rows.map(r => {
             const isOpen = openRowId === r.id;
@@ -2831,6 +2847,7 @@ function IdentificationTable({ rows, onIdentify, onOpenDrawer, openRowId }) {
                   </div>
                 </td>
                 <td><span className="mono" style={{color:'#9ca3af', fontSize:11.5}}>{r.mrn}</span></td>
+                <td><span className="mono" style={{color:'#9ca3af', fontSize:11.5}}>{r.dob || '\u2014'}</span></td>
                 <td>{r.clinic}</td>
                 <td>{r.specimens.join(' · ')}</td>
                 <td>{r.facility}</td>
@@ -2849,7 +2866,7 @@ function IdentificationTable({ rows, onIdentify, onOpenDrawer, openRowId }) {
 function WorkingTable({ rows, onConfirmRow, onOpenDrawer, openRowId }) {
   return (
     <div className="table-wrap">
-      <div style={{overflowX:'auto'}}>
+      <div className="cf-scroll">
       <table className="cf">
         <thead>
           <tr>
@@ -2857,7 +2874,9 @@ function WorkingTable({ rows, onConfirmRow, onOpenDrawer, openRowId }) {
             <th style={{width:70}}>Shipper</th>
             <th>Patient</th>
             <th>MRN</th>
+            <th>DOB</th>
             <th>RFID</th>
+            <th>Tag</th>
             <th>Status</th>
             <th>Clinic Name</th>
             <th>Specimen Type(s)</th>
@@ -2897,7 +2916,13 @@ function WorkingTable({ rows, onConfirmRow, onOpenDrawer, openRowId }) {
                   </div>
                 </td>
                 <td><span className="mono" style={{color:'#9ca3af', fontSize:11.5}}>{r.mrn}</span></td>
+                <td><span className="mono" style={{color:'#9ca3af', fontSize:11.5}}>{r.dob || '\u2014'}</span></td>
                 <td><span className="mono" style={{color: r.rfid === '—' ? '#4b5563' : '#d1d5db'}}>{r.rfid}</span></td>
+                <td>
+                  {r.rfid && r.rfid !== '—'
+                    ? <span className="badge tagbound" title="RFID tag printed and bound to this cane"><Icon.Check size={9}/>RFID bound</span>
+                    : <span className="badge awaittag" title="No RFID tag bound yet. Print and scan a tag before this cane can move to Placed."><span className="dotty"/>Awaiting tag scan</span>}
+                </td>
                 <td>
                   {r.flagged ? <span className="badge flagged"><span className="dotty"/>Flagged</span>
                     : r.status === 'assigned' ? <span className="badge atcf" title="Location assigned. Awaiting vault scan on handheld to confirm placement."><span className="dotty"/>Awaiting placement scan</span>
@@ -2927,7 +2952,7 @@ function WorkingTable({ rows, onConfirmRow, onOpenDrawer, openRowId }) {
 function CompletedTable({ rows, onOpenDrawer }) {
   return (
     <div className="table-wrap">
-      <div style={{overflowX:'auto'}}>
+      <div className="cf-scroll">
       <table className="cf">
         <thead>
           <tr>
@@ -3277,6 +3302,79 @@ function SealVerifiedBanner({ shipperId, verification }) {
 }
 
 
+/* ==================== Complete Intake + Manual Add modals ==================== */
+function ModalShell({ title, sub, children, onClose }) {
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:60,display:'grid',placeItems:'center',padding:24}} onClick={onClose}>
+      <div className="cryo-card" style={{background:'#14161c',width:'100%',maxWidth:460,boxShadow:'var(--shadow-lg)'}} onClick={(e) => e.stopPropagation()}>
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,marginBottom:14}}>
+          <div>
+            <div style={{fontSize:16,fontWeight:600,color:'#fff'}}>{title}</div>
+            {sub && <div style={{fontSize:12.5,color:'#9ca3af',marginTop:4,lineHeight:1.5}}>{sub}</div>}
+          </div>
+          <button className="icon-btn" onClick={onClose} title="Close"><Icon.X/></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function CompleteIntakeModal({ count, onConfirm, onClose }) {
+  return (
+    <ModalShell
+      title="Mark intake complete?"
+      sub={`All ${count} canes are Placed. Finalizing locks the worksheet and generates the chain-of-custody and discrepancy reports on the transport record. This cannot be undone.`}
+      onClose={onClose}>
+      <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:6}}>
+        <button className="btn-outline" onClick={onClose}>Cancel</button>
+        <button className="btn-teal" onClick={onConfirm}><span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon.Check size={11}/>Finalize intake</span></button>
+      </div>
+    </ModalShell>
+  );
+}
+
+const SPECIMEN_OPTIONS = ['Embryos','Oocyte','Sperm','Tissue','Embryos · Tissue'];
+const acLabel = { display:'block', fontSize:11, color:'#9ca3af', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.05em' };
+function AddCaneModal({ shipperId, onAdd, onClose }) {
+  const [f, setF] = useState({ patient:'', mrn:'', dob:'', clinic:'Clinic ABC', specimens:'Embryos', facility:'Atlanta' });
+  const set = (k) => (e) => setF(prev => ({ ...prev, [k]: e.target.value }));
+  const canSave = f.patient.trim().length > 0;
+  return (
+    <ModalShell
+      title="Add cane manually"
+      sub={`This cane was not on the import file. It will be added to Shipper S${shipperId}, marked Manually Added, and tracked as a discrepancy. It starts with no RFID and must have a tag printed during identification.`}
+      onClose={onClose}>
+      <div style={{marginBottom:12}}>
+        <div style={acLabel}>Patient name *</div>
+        <input className="cryo-input" value={f.patient} onChange={set('patient')} placeholder="Last, First" autoFocus/>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+        <div><div style={acLabel}>MRN</div><input className="cryo-input" value={f.mrn} onChange={set('mrn')} placeholder="MRN-00000"/></div>
+        <div><div style={acLabel}>DOB</div><input className="cryo-input" value={f.dob} onChange={set('dob')} placeholder="YYYY-MM-DD"/></div>
+      </div>
+      <div style={{marginBottom:12}}>
+        <div style={acLabel}>Clinic</div><input className="cryo-input" value={f.clinic} onChange={set('clinic')}/>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:4}}>
+        <div>
+          <div style={acLabel}>Specimen type</div>
+          <select className="cryo-input" value={f.specimens} onChange={set('specimens')}>
+            {SPECIMEN_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </div>
+        <div><div style={acLabel}>Facility</div><input className="cryo-input" value={f.facility} onChange={set('facility')}/></div>
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:16}}>
+        <button className="btn-outline" onClick={onClose}>Cancel</button>
+        <button className="btn-teal" disabled={!canSave} onClick={() => onAdd(f)}>
+          <span style={{display:'inline-flex',alignItems:'center',gap:6}}>+ Add cane</span>
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
 function App() {
 
   const TICKET = {
@@ -3313,6 +3411,9 @@ function App() {
   const [sealVerified, setSealVerified] = useState({});
   const [doneShippers, setDoneShippers] = useState([]);
   const [search, setSearch] = useState('');
+  const [intakeComplete, setIntakeComplete] = useState(false);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [showAddCane, setShowAddCane] = useState(false);
 
   // suggest block tooltip auto-dismisses
   useEffect(() => {
@@ -3396,6 +3497,28 @@ function App() {
   const handleAddFlag = (rowId, type, note) => {
     setRows(rows.map(r => r.id === rowId ? { ...r, flagged: true, flagType: type, flagNote: note } : r));
   };
+  const handleAddManualCane = (data) => {
+    const id = `CANE-MAN-${String(Date.now()).slice(-5)}`;
+    const newRow = {
+      id, importIdx: 9999,
+      shipper: currentShipper,
+      patient: (data.patient || '').trim() || 'Unnamed cane',
+      mrn: (data.mrn || '').trim() || '\u2014',
+      dob: (data.dob || '').trim() || '\u2014',
+      rfid: '\u2014',
+      clinic: (data.clinic || '').trim() || 'Clinic ABC',
+      specimens: data.specimens ? data.specimens.split(' · ') : ['Unknown'],
+      facility: (data.facility || '').trim() || 'Atlanta',
+      reactivity: 'Pending', freezeDate: '\u2014',
+      status: 'requested', loc: null,
+      manual: true,
+      capColor: '#a855f7', capLabel: 'Manual', deviceCount: 1,
+      stage: 'identification',
+    };
+    setRows(prev => [newRow, ...prev]);
+    setShowAddCane(false);
+  };
+
   const handleToggleManual = (rowId) => {
     setRows(rows.map(r => r.id === rowId ? { ...r, manual: !r.manual } : r));
   };
@@ -3411,6 +3534,7 @@ function App() {
     setSummaryDismissed(false); setShowSkipped(false); setSuggested(false);
     setShowConfirm(false); setSelected([]); setShowAfterState(false); setOpenRowId(null);
     setCurrentShipper(1); setDoneShippers([]); setSearch('');
+    setIntakeComplete(false); setShowCompleteModal(false); setShowAddCane(false);
   };
 
   const allRows = useMemo(() => [...rows, ...completed], [rows, completed]);
@@ -3426,6 +3550,11 @@ function App() {
     return (a.verifiedAt||0) - (b.verifiedAt||0); // identification order (default)
   });
   const placedRows   = rows.filter(r => r.stage === 'placed' && !r.removed);
+
+  // Intake completion: every non-removed cane must reach the Placed stage.
+  const liveRows = rows.filter(r => !r.removed);
+  const placedDoneCount = liveRows.filter(r => r.stage === 'placed').length;
+  const allPlaced = liveRows.length > 0 && placedDoneCount === liveRows.length;
   const stageRows = tab === 'identification' ? idRows : tab === 'verified' ? verifiedRows : placedRows;
   const visibleCount = stageRows.length;
   const totalForTab = tab === 'identification' ? TICKET.canes : stageRows.length;
@@ -3521,6 +3650,19 @@ function App() {
           <div className="page-header-r">
             <button className="btn-outline">Assign to…</button>
             <button className="btn-teal">Assign to myself</button>
+            {intakeComplete ? (
+              <span className="badge completed" style={{height:34,padding:'0 14px',fontSize:12}}><Icon.Check size={11}/>Intake Complete</span>
+            ) : (
+              <button
+                className="btn-teal"
+                disabled={!allPlaced}
+                onClick={() => setShowCompleteModal(true)}
+                title={allPlaced
+                  ? 'Finalize chain-of-custody and discrepancy reports on the transport record'
+                  : `${placedDoneCount} of ${liveRows.length} canes Placed — all canes must be Placed before finalizing`}>
+                <span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon.Check size={11}/>Mark Intake Complete</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -3582,6 +3724,13 @@ function App() {
               <>
                 <SealVerifiedBanner shipperId={currentShipper} verification={sealVerified[currentShipper]}/>
 
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,margin:'4px 0 -4px'}}>
+                  <span className="small" style={{color:'#6b7280',fontSize:12}}>Cane not on the manifest? Add it manually — it will be flagged as a discrepancy.</span>
+                  <button className="btn-outline" onClick={() => setShowAddCane(true)} title="Add a cane that was not on the import file">
+                    <span style={{display:'inline-flex',alignItems:'center',gap:6}}>+ Add cane</span>
+                  </button>
+                </div>
+
                 <SearchBox
                   value={search}
                   onChange={setSearch}
@@ -3594,6 +3743,7 @@ function App() {
                   onIdentify={handleIdentify}
                   onOpenDrawer={(id) => setOpenRowId(id)}
                   openRowId={openRowId}
+                  search={search}
                 />
               </>
             )}
@@ -3656,6 +3806,22 @@ function App() {
         )}
 
         
+
+        {showCompleteModal && (
+          <CompleteIntakeModal
+            count={liveRows.length}
+            onConfirm={() => { setIntakeComplete(true); setStatus('completed'); setShowCompleteModal(false); }}
+            onClose={() => setShowCompleteModal(false)}
+          />
+        )}
+
+        {showAddCane && (
+          <AddCaneModal
+            shipperId={currentShipper}
+            onAdd={handleAddManualCane}
+            onClose={() => setShowAddCane(false)}
+          />
+        )}
 
         {openRow && (
           <CaneDrawer

@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=1440"/>
-<title>CF1 — Bulk Intake Worksheet</title>
+<title>CryoFuture Atlanta — Bulk Intake Worksheet</title>
 <style>
 
 /* CryoFuture design tokens — single source of truth.
@@ -2482,7 +2482,7 @@ function genCanes() {
     'Alex Kowalski','Penelope Greaves','Gabriel Mu\u00f1oz','Sienna Rowe','Bashir Aziz',
     'Caroline Underhill','Mateo Riveras','Esme Thornton','Ravi Bhatt','Olivia Rasmussen',
   ];
-  const CLINICS = ['Aspire — Austin','Stanford RES','Pacific Fertility','NYU Langone','Spring Fertility','Reproductive Medicine Assoc.','Boston IVF'];
+  const CLINICS = ['Clinic ABC'];
   const SPECIMENS = [['Sperm'],['Embryos'],['Oocyte'],['Tissue'],['Embryos','Oocyte'],['Embryos','Tissue']];
 
   // Shipper assignment: 18 in S1, 17 in S2, 15 in S3 (50 total)
@@ -2528,19 +2528,19 @@ function genCanes() {
 }
 
 const SHIPPERS = [
-  { id: 1, label: 'SHP-2026-04-27-A', source: 'Aspire — Austin · 5 canes' },
-  { id: 2, label: 'SHP-2026-04-27-B', source: 'Mixed clinics · 5 canes' },
-  { id: 3, label: 'SHP-2026-04-27-C', source: 'Mixed clinics · 4 canes' },
+  { id: 1, label: 'SHP-2026-04-27-A', source: 'Clinic ABC · 18 canes' },
+  { id: 2, label: 'SHP-2026-04-27-B', source: 'Clinic ABC · 17 canes' },
+  { id: 3, label: 'SHP-2026-04-27-C', source: 'Clinic ABC · 15 canes' },
 ];
 
 function genCompleted() {
   return [
-    { id: 'CANE-2026-00301', shipper: 1, patient: 'Lillian Park',  mrn: 'MRN-47102', rfid: '7D584A11', clinic: 'Pacific Fertility', specimens: ['Embryos'],          facility: 'CF1 NY', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'03' } },
-    { id: 'CANE-2026-00302', shipper: 1, patient: 'Marcus Lin',    mrn: 'MRN-47188', rfid: '7D584A82', clinic: 'NYU Langone',       specimens: ['Sperm'],            facility: 'CF1 NY', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'04' } },
-    { id: 'CANE-2026-00303', shipper: 2, patient: 'Priya Shah',    mrn: 'MRN-47244', rfid: '7D584B0C', clinic: 'Stanford RES',      specimens: ['Oocyte'],           facility: 'CF1 NY', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'05' }, manual: true },
-    { id: 'CANE-2026-00304', shipper: 2, patient: 'Hannah Wexler', mrn: 'MRN-47298', rfid: '7D584B7E', clinic: 'Spring Fertility',  specimens: ['Embryos','Tissue'], facility: 'CF1 NY', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'06' }, resolved: true, flagType: 'Mislabeled cane' },
-    { id: 'CANE-2026-00305', shipper: 3, patient: 'Diego Martinez',mrn: 'MRN-47371', rfid: '7D584C44', clinic: 'Clinic ABC',   specimens: ['Sperm'],            facility: 'CF1 NY', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'08' } },
-    { id: 'CANE-2026-00306', shipper: 3, patient: 'Yuki Tanaka',   mrn: 'MRN-47422', rfid: '7D584C9B', clinic: 'Pacific Fertility', specimens: ['Embryos'],          facility: 'CF1 NY', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'09' } },
+    { id: 'CANE-2026-00301', shipper: 1, patient: 'Lillian Park',  mrn: 'MRN-47102', rfid: '7D584A11', clinic: 'Clinic ABC', specimens: ['Embryos'],          facility: 'Atlanta', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'03' } },
+    { id: 'CANE-2026-00302', shipper: 1, patient: 'Marcus Lin',    mrn: 'MRN-47188', rfid: '7D584A82', clinic: 'Clinic ABC', specimens: ['Sperm'],            facility: 'Atlanta', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'04' } },
+    { id: 'CANE-2026-00303', shipper: 2, patient: 'Priya Shah',    mrn: 'MRN-47244', rfid: '7D584B0C', clinic: 'Clinic ABC', specimens: ['Oocyte'],           facility: 'Atlanta', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'05' }, manual: true },
+    { id: 'CANE-2026-00304', shipper: 2, patient: 'Hannah Wexler', mrn: 'MRN-47298', rfid: '7D584B7E', clinic: 'Clinic ABC', specimens: ['Embryos','Tissue'], facility: 'Atlanta', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'06' }, resolved: true, flagType: 'Mislabeled cane' },
+    { id: 'CANE-2026-00305', shipper: 3, patient: 'Diego Martinez',mrn: 'MRN-47371', rfid: '7D584C44', clinic: 'Clinic ABC', specimens: ['Sperm'],            facility: 'Atlanta', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'08' } },
+    { id: 'CANE-2026-00306', shipper: 3, patient: 'Grace Donnelly',mrn: 'MRN-47422', rfid: '7D584C9B', clinic: 'Clinic ABC', specimens: ['Embryos'],          facility: 'Atlanta', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'09' } },
   ];
 }
 
@@ -2863,7 +2863,7 @@ function IdentificationTable({ rows, onIdentify, onOpenDrawer, openRowId, search
 }
 
 /* -------------------- Working Table -------------------- */
-function WorkingTable({ rows, onConfirmRow, onOpenDrawer, openRowId }) {
+function WorkingTable({ rows, onConfirmRow, onOpenDrawer, openRowId, onPlaceRow }) {
   return (
     <div className="table-wrap">
       <div className="cf-scroll">
@@ -2905,6 +2905,9 @@ function WorkingTable({ rows, onConfirmRow, onOpenDrawer, openRowId }) {
                     )}
                     {r.status === 'proposed' && (
                       <button className="confirm-row-btn" title="Confirm proposed location" onClick={(e) => { e.stopPropagation(); onConfirmRow(r.id); }}><Icon.Check size={11}/>Confirm</button>
+                    )}
+                    {r.status === 'assigned' && !r.flagged && r.rfid && r.rfid !== '—' && (
+                      <button className="confirm-row-btn" title="Simulate handheld vault scan — confirms physical placement and moves the cane to Placed" onClick={(e) => { e.stopPropagation(); onPlaceRow(r.id); }}><Icon.Check size={11}/>Place</button>
                     )}
                   </div>
                 </td>
@@ -3380,10 +3383,10 @@ function App() {
   const TICKET = {
     processor: 'ryan@cryofuture.com',
     clinic: 'Clinic ABC',
-    facility: 'CF1 NY',
-    canes: 49,
+    facility: 'Atlanta',
+    canes: 50,
     created: '04/27/2026',
-    importFile: 'aspire_austin_2026-04-27_bulkintake.csv',
+    importFile: 'clinic_abc_2026-04-27_bulkintake.csv',
     importDate: 'Apr 27, 2026 · 10:14 AM',
     importedBy: 'sarah@cryofuture.com',
   };
@@ -3476,6 +3479,23 @@ function App() {
     setRows(prev => prev.map(r => r.status === 'proposed' ? { ...r, status: 'assigned' } : r));
   };
   const proposedCount = rows.filter(r => r.status === 'proposed').length;
+
+  // Vault placement scan: moves a location-confirmed, tag-bound cane to Placed.
+  const placeRow = (rowId) => {
+    setRows(prev => prev.map(r => r.id === rowId ? { ...r, stage: 'placed', placedAt: Date.now() } : r));
+  };
+
+  // Demo helper: fast-forward the whole batch to Placed so the end-state and
+  // "Mark Intake Complete" can be reviewed without processing all 50 canes by hand.
+  const demoPlaceAll = () => {
+    let slot = 10;
+    setRows(prev => prev.map(r => {
+      if (r.removed) return r;
+      const loc = r.loc || { v:'A', t:'04', l:'2', p:'1', cn:'08', s: String(slot++).padStart(2,'0') };
+      return { ...r, stage: 'placed', status: 'assigned', loc, placedAt: Date.now() };
+    }));
+    setStatus('in_progress');
+  };
 
   const lastUsedLoc = useMemo(() => {
     const withLoc = rows.filter(r => r.loc);
@@ -3692,6 +3712,9 @@ function App() {
               </span>
             </button>
             <button className="btn-outline" style={{padding:'5px 12px',fontSize:11.5}} onClick={() => { reset(); }} title="Reset prototype state">Reset Demo</button>
+            {!intakeComplete && !allPlaced && (
+              <button className="btn-outline" style={{padding:'5px 12px',fontSize:11.5,borderColor:'rgba(202,191,253,0.35)',color:'var(--purple-300)'}} onClick={demoPlaceAll} title="Demo shortcut: fast-forward every cane to Placed so the completed end-state and Mark Intake Complete can be reviewed">Demo: place all</button>
+            )}
             {applied && <button className="btn-outline" style={{padding:'5px 12px',fontSize:11.5,borderColor:'var(--cryo-cyan)',color:'var(--cryo-cyan)'}} onClick={() => setShowAfterState(s => !s)}>{showAfterState ? 'View: Before Apply' : 'View: After Apply'}</button>}
           </span>
         </div>
@@ -3794,6 +3817,7 @@ function App() {
               onConfirmRow={confirmRowLocation}
               onOpenDrawer={(id) => setOpenRowId(id)}
               openRowId={openRowId}
+              onPlaceRow={placeRow}
             />
           </>
         )}

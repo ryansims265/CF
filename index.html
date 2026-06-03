@@ -530,6 +530,44 @@ html, body {
   .badge.completed { background: rgba(34,197,94,0.08); color: #4ade80; border: 1px solid rgba(34,197,94,0.22); }
   .badge.manual    { background: rgba(202,191,253,0.06); color: var(--purple-300); border: 1px solid rgba(202,191,253,0.18); }
   .badge.tagbound  { background: rgba(34,197,94,0.08); color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+  .start-here-callout {
+    display: flex; align-items: center; gap: 12px;
+    margin: 0 0 14px; padding: 12px 16px;
+    background: rgba(24,227,187,0.07);
+    border: 1px solid rgba(24,227,187,0.35);
+    border-left: 3px solid var(--cryo-cyan);
+    border-radius: 8px;
+    font-size: 13px; color: #d1d5db; line-height: 1.5;
+  }
+  .start-here-callout .sh-badge {
+    flex-shrink: 0;
+    padding: 3px 10px; border-radius: 9999px;
+    background: var(--cryo-cyan); color: #04201b;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+  }
+  .dr-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .dr-head-titles { min-width: 0; flex: 1; }
+  .dr-head-actions { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+  .dr-qa-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 11px; font-size: 11.5px; font-weight: 600; font-family: inherit;
+    border-radius: 6px; border: 1px solid #3a3d46; background: transparent; color: #cbd5e1;
+    cursor: pointer; white-space: nowrap;
+  }
+  .dr-qa-btn:hover { border-color: #4b4f5a; color: #fff; }
+  .dr-qa-btn.on { background: rgba(249,128,128,0.12); border-color: rgba(249,128,128,0.4); color: #f98080; }
+  .dr-qa-btn.danger { color: #f98080; border-color: rgba(249,128,128,0.28); }
+  .dr-qa-btn.danger:hover { background: rgba(249,128,128,0.1); border-color: rgba(249,128,128,0.5); }
+  .cf-toast {
+    position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+    z-index: 90; display: inline-flex; align-items: center; gap: 9px;
+    padding: 11px 18px; border-radius: 9px;
+    background: #14241d; border: 1px solid rgba(34,197,94,0.4);
+    color: #d1fae5; font-size: 13px; font-weight: 500;
+    box-shadow: var(--shadow-lg);
+    animation: toastIn .18s ease-out;
+  }
+  @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
   .badge.awaittag  { background: rgba(250,204,21,0.08); color: var(--warning-yellow); border: 1px solid rgba(250,204,21,0.28); }
   .badge .dotty    { width: 5px; height: 5px; border-radius: 9999px; background: currentColor; }
 
@@ -1521,7 +1559,7 @@ function checkOccupancy(loc) {
 
 
 /* -------------------- Discrepancy View (full table view) -------------------- */
-function DiscrepancyView({ rows, onClose, onOpenCane }) {
+function DiscrepancyView({ rows, onClose, onOpenCane, onRemoveDiscrepancy }) {
   const flagged = rows.filter(r => r.flagged && !r.removed);
   const manualAdds = rows.filter(r => r.manual && !r.removed);
   const removed = rows.filter(r => r.removed);
@@ -1621,9 +1659,10 @@ function DiscrepancyView({ rows, onClose, onOpenCane }) {
             <table className="cf">
               <thead>
                 <tr>
-                  <th style={{width:90}}>Action</th>
+                  <th style={{width:150}}>Action</th>
                   <th style={{width:80}}>Type</th>
                   <th style={{width:70}}>Shipper</th>
+                  <th>Cane ID</th>
                   <th>Patient</th>
                   <th>MRN</th>
                   <th>Stage</th>
@@ -1632,19 +1671,28 @@ function DiscrepancyView({ rows, onClose, onOpenCane }) {
                   <th>Expected</th>
                   <th>Actual</th>
                   <th>Notes</th>
-                  <th>Cane ID</th>
                 </tr>
               </thead>
               <tbody>
                 {tableRows.map((r, i) => (
                   <tr key={i} className="flagged">
-                    <td><button onClick={() => onOpenCane(r.caneId)} className="btn-outline" style={{padding:'5px 12px',fontSize:11.5}}>Open</button></td>
+                    <td>
+                      <div style={{display:'flex',gap:6}}>
+                        <button onClick={() => onOpenCane(r.caneId)} className="btn-outline" style={{padding:'5px 12px',fontSize:11.5}}>Open</button>
+                        <button
+                          onClick={() => { if (confirm('Remove this discrepancy from the report? This clears the flag on ' + r.caneId + '.')) onRemoveDiscrepancy && onRemoveDiscrepancy({ type: r.type, caneId: r.caneId }); }}
+                          className="btn-outline"
+                          style={{padding:'5px 12px',fontSize:11.5,borderColor:'rgba(249,128,128,0.3)',color:'#f98080'}}
+                          title="Remove this discrepancy from the report">Remove</button>
+                      </div>
+                    </td>
                     <td>{
                       r.type === 'manual' ? <span style={{padding:'2px 8px',borderRadius:3,background:'rgba(96,165,250,0.15)',color:'#60a5fa',fontSize:11,fontWeight:600}}>Manual</span>
                       : r.type === 'removed' ? <span style={{padding:'2px 8px',borderRadius:3,background:'rgba(156,163,175,0.15)',color:'#9ca3af',fontSize:11,fontWeight:600}}>Removed</span>
                       : <span style={{padding:'2px 8px',borderRadius:3,background:'rgba(249,128,128,0.15)',color:'#f98080',fontSize:11,fontWeight:600}}>Flag</span>
                     }</td>
                     <td>{r.shipper ? <span className="shipper-pill">S{r.shipper}</span> : <span style={{color:'#6b7280',fontSize:12}}>—</span>}</td>
+                    <td><span className="mono" style={{color:'#cbd5e1',fontSize:11.5,fontWeight:600}}>{r.caneId}</span></td>
                     <td>{r.patient}</td>
                     <td><span className="mono" style={{color:'#9ca3af',fontSize:11.5}}>{r.mrn}</span></td>
                     <td><span style={{padding:'2px 8px',borderRadius:3,background:'rgba(255,255,255,0.05)',color:'#9ca3af',fontSize:11,fontWeight:500}}>{stageLabel(r.stage)}</span></td>
@@ -1653,7 +1701,6 @@ function DiscrepancyView({ rows, onClose, onOpenCane }) {
                     <td style={{color:'#9ca3af'}}>{r.expected || '\u2014'}</td>
                     <td style={{color:'#f98080',fontWeight:500}}>{r.actual || '\u2014'}</td>
                     <td style={{color:'#d1d5db',fontSize:12,maxWidth:280}}>{r.note || '\u2014'}</td>
-                    <td><span className="mono" style={{color:'#9ca3af',fontSize:11.5}}>{r.caneId}</span></td>
                   </tr>
                 ))}
               </tbody>
@@ -1785,12 +1832,28 @@ function CaneDrawer({
       <aside className="cane-drawer" ref={drawerRef} role="dialog" aria-label="Cane details">
         {/* Header */}
         <header className="dr-header">
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
-            <div style={{minWidth:0,flex:1}}>
+          <div className="dr-head-row">
+            <div className="dr-head-titles">
               <div className="dr-title">{row.patient}</div>
               <div className="dr-sub">{row.id}{row.manual && <span className="badge manual" style={{marginLeft:8,verticalAlign:'middle'}}>Manually Added</span>}</div>
             </div>
-            <button className="dr-close" onClick={onClose} aria-label="Close drawer"><Icon.X/></button>
+            <div className="dr-head-actions">
+              {isIdent && (
+                <button
+                  className={`dr-qa-btn ${discrepancy ? 'on' : ''}`}
+                  onClick={() => { setDiscrepancy(!discrepancy); if (discrepancy) { setDiscrepancyFields({}); setDiscrepancyNote(''); } }}
+                  title="Flag a field that does not match the manifest">
+                  <Icon.Warn/>{discrepancy ? 'Flagging' : 'Discrepancy'}
+                </button>
+              )}
+              <button
+                className="dr-qa-btn danger"
+                onClick={() => { if (confirm('Remove ' + row.id + ' from the worklist?')) onRemoveRow(row.id); }}
+                title="Remove this cane from the worklist (tracked as a discrepancy)">
+                Remove
+              </button>
+              <button className="dr-close" onClick={onClose} aria-label="Close drawer"><Icon.X/></button>
+            </div>
           </div>
           <div className="dr-status-row">
             <StatusBadge/>
@@ -1803,22 +1866,21 @@ function CaneDrawer({
 
           {/* Cane Details */}
           <section className="dr-section">
-            <div className="dr-section-label">Cane Details</div>
+            <div className="dr-section-label">Confirm against the physical cane</div>
             <div className="dr-readonly-grid">
               <div className="rd-cell"><div className="rd-label">Patient ID / MRN</div><div className="rd-value mono">{row.mrn || '\u2014'}</div></div>
               <div className="rd-cell"><div className="rd-label">Date of Birth</div><div className="rd-value mono">{row.dob || '\u2014'}</div></div>
-              <div className="rd-cell"><div className="rd-label">Cane top</div><div className="rd-value">
+              <div className="rd-cell"><div className="rd-label">Cane tab color</div><div className="rd-value">
                 <span style={{display:'inline-block',width:11,height:11,borderRadius:'50%',background:row.capColor||'#3b82f6',marginRight:8,verticalAlign:'middle',border:'1px solid rgba(255,255,255,0.2)'}}/>
                 {row.capLabel || 'Blue'}
               </div></div>
+              <div className="rd-cell"><div className="rd-label">Cane tab label</div><div className="rd-value mono">{row.tabLabel || '\u2014'}</div></div>
               <div className="rd-cell"><div className="rd-label">Specimen Type</div><div className="rd-value">{row.specimens.join(' \u00b7 ')}</div></div>
               <div className="rd-cell"><div className="rd-label">Devices</div><div className="rd-value">{row.deviceCount || 4}</div></div>
               <div className="rd-cell"><div className="rd-label">Reactivity</div><div className="rd-value" style={row.reactivity === 'Reactive' ? {color:'#f98080',fontWeight:600} : row.reactivity === 'Pending' ? {color:'#fbbf24'} : undefined}>{row.reactivity || 'Unknown'}</div></div>
+              <div className="rd-cell"><div className="rd-label">FDA Eligibility</div><div className="rd-value" style={row.fdaEligibility === 'Ineligible' ? {color:'#f98080',fontWeight:600} : row.fdaEligibility === 'Incomplete' ? {color:'#fbbf24'} : undefined}>{row.fdaEligibility || 'Unknown'}</div></div>
               <div className="rd-cell"><div className="rd-label">Freeze Date</div><div className="rd-value mono">{row.freezeDate || '\u2014'}</div></div>
-              <div className="rd-cell"><div className="rd-label">Clinic</div><div className="rd-value">{row.clinic}</div></div>
-              <div className="rd-cell"><div className="rd-label">Facility</div><div className="rd-value">{row.facility}</div></div>
-              <div className="rd-cell"><div className="rd-label">RFID</div><div className="rd-value mono" style={{fontSize:12}}>{row.rfid}</div></div>
-              <div className="rd-cell"><div className="rd-label">Shipper</div><div className="rd-value">{row.shipper ? `S${row.shipper}` : <span style={{color:'#6b7280'}}>— set during identify</span>}</div></div>
+              <div className="rd-cell"><div className="rd-label">Shipper</div><div className="rd-value">{row.shipper ? `S${row.shipper}` : <span style={{color:'#6b7280'}}>— set on identify</span>}</div></div>
             </div>
           </section>
 
@@ -1878,18 +1940,11 @@ function CaneDrawer({
                   <div className="dr-section-label" style={{marginBottom:0}}>
                     Flag Discrepancy <span style={{color:'#6b7280',fontWeight:500,marginLeft:4}}>optional · reported to client</span>
                   </div>
-                  <button onClick={() => { setDiscrepancy(!discrepancy); if (discrepancy) { setDiscrepancyFields({}); setDiscrepancyNote(''); } }} style={{
-                    padding:'7px 14px',fontSize:12,fontWeight:600,borderRadius:6,border:'1px solid',
-                    cursor:'pointer',fontFamily:'inherit',
-                    background:discrepancy?'rgba(249,128,128,0.12)':'transparent',
-                    borderColor:discrepancy?'rgba(249,128,128,0.4)':'#3a3d46',
-                    color:discrepancy?'#f98080':'#e5e7eb',
-                    display:'inline-flex',alignItems:'center',gap:6,
-                  }}>
-                    <Icon.Warn/>
-                    {discrepancy?'Discrepancy On':'Mark Discrepancy'}
-                  </button>
                 </div>
+
+                {!discrepancy && (
+                  <div style={{fontSize:11.5,color:'#6b7280'}}>Use <strong style={{color:'#9ca3af'}}>Mark Discrepancy</strong> at the top of this panel to flag a field that does not match the manifest.</div>
+                )}
 
                 {discrepancy && (
                   <div style={{padding:12,background:'rgba(249,128,128,0.04)',border:'1px solid rgba(249,128,128,0.2)',borderRadius:6}}>
@@ -1900,8 +1955,10 @@ function CaneDrawer({
                       {key:'dob',label:'Date of Birth',expected:row.dob||'\u2014'},
                       {key:'specimens',label:'Specimen Type',expected:row.specimens.join(' \u00b7 ')},
                       {key:'devices',label:'Device Count',expected:String(row.deviceCount||4)},
-                      {key:'capLabel',label:'Cane Top Color',expected:row.capLabel||'Blue'},
+                      {key:'capLabel',label:'Cane tab color',expected:row.capLabel||'Blue'},
+                      {key:'tabLabel',label:'Cane tab label',expected:row.tabLabel||'\u2014'},
                       {key:'reactivity',label:'Reactivity',expected:row.reactivity||'Unknown'},
+                      {key:'fdaEligibility',label:'FDA Eligibility',expected:row.fdaEligibility||'Unknown'},
                       {key:'freezeDate',label:'Freeze Date',expected:row.freezeDate||'\u2014'},
                     ].map(f => {
                       const checked = !!discrepancyFields[f.key];
@@ -2025,27 +2082,6 @@ function CaneDrawer({
               )}
             </section>
           )}
-
-          {/* Row Actions */}
-          <section className="dr-section dr-actions-section">
-            <div className="dr-section-label">Row Actions</div>
-            <div className="dr-toggle-row">
-              <div>
-                <div style={{color:'#e5e7eb',fontSize:13}}>Mark as Manually Added</div>
-                <div style={{color:'#6b7280',fontSize:11.5,marginTop:2}}>For canes added outside the import file</div>
-              </div>
-              <button
-                className={`switch ${row.manual ? 'on' : ''}`}
-                role="switch"
-                aria-checked={row.manual ? 'true' : 'false'}
-                onClick={() => onToggleManual(row.id)}>
-                <span className="thumb"/>
-              </button>
-            </div>
-            <button className="dr-remove-link" onClick={() => { if (confirm('Remove ' + row.id + ' from the worklist?')) onRemoveRow(row.id); }}>
-              Remove from list
-            </button>
-          </section>
         </div>
 
         {/* Footer */}
@@ -2148,7 +2184,7 @@ function IdentifyModal({ row, onCancel, onConfirm }) {
           <div className="im-pat-block">
             <div className="im-eyebrow">Identification · Verify Patient</div>
             <div className="im-pat-row">
-              <div className="im-cap" style={{background: row.capColor || '#3b82f6'}} title={`Cane top color: ${row.capLabel || 'Blue'}`}>
+              <div className="im-cap" style={{background: row.capColor || '#3b82f6'}} title={`Cane tab color: ${row.capLabel || 'Blue'}`}>
                 <span className="im-cap-shine"/>
               </div>
               <div style={{flex:1, minWidth:0}}>
@@ -2163,7 +2199,7 @@ function IdentifyModal({ row, onCancel, onConfirm }) {
             </div>
             <div className="im-pat-chips">
               <span className="im-chip"><span className="im-chip-label">Cane ID</span><span className="mono">{row.id}</span></span>
-              <span className="im-chip"><span className="im-chip-label">Cane top</span>{row.capLabel || 'Blue'}</span>
+              <span className="im-chip"><span className="im-chip-label">Cane tab</span>{row.capLabel || 'Blue'}</span>
               <span className="im-chip"><span className="im-chip-label">Specimens</span>{row.specimens.join(' · ')}</span>
               <span className="im-chip"><span className="im-chip-label">Devices</span><strong style={{color:'#fff'}}>{row.deviceCount || 4}</strong></span>
               <span className="im-chip" style={row.reactivity === 'Reactive' ? {borderColor:'rgba(249,128,128,0.45)', background:'rgba(249,128,128,0.06)'} : undefined}>
@@ -2276,8 +2312,10 @@ function IdentifyModal({ row, onCancel, onConfirm }) {
                   {key:'patient', label:'Patient Name', expected: row.patient},
                   {key:'specimens', label:'Specimen Type', expected: row.specimens.join(' · ')},
                   {key:'devices', label:'Device Count', expected: String(row.deviceCount || 4)},
-                  {key:'capLabel', label:'Cane Top Color', expected: row.capLabel || 'Blue'},
+                  {key:'capLabel', label:'Cane tab color', expected: row.capLabel || 'Blue'},
+                  {key:'tabLabel', label:'Cane tab label', expected: row.tabLabel || '\u2014'},
                   {key:'reactivity', label:'Reactivity', expected: row.reactivity || 'Unknown'},
+                  {key:'fdaEligibility', label:'FDA Eligibility', expected: row.fdaEligibility || 'Unknown'},
                   {key:'freezeDate', label:'Freeze Date', expected: row.freezeDate || '—'},
                 ].map(f => {
                   const checked = !!discrepancyFields[f.key];
@@ -2514,11 +2552,13 @@ function genCanes() {
       dob: ['1988-04-12','1991-09-03','1985-12-22','1994-06-17','1990-02-08','1987-11-30'][i % 6],
       clinic, specimens, facility: 'Atlanta',
       reactivity: ['Non-reactive', 'Non-reactive', 'Non-reactive', 'Reactive', 'Pending'][i % 5],
+      fdaEligibility: ['Eligible', 'Not applicable (autologous)', 'Eligible', 'Incomplete', 'Not applicable (autologous)'][i % 5],
       freezeDate: ['2021-08-14', '2022-03-22', '2023-01-05', '2020-11-30', '2024-06-18'][i % 5],
       status: 'requested', loc: null,
-      manual: i === 6,
+      manual: false,
       capColor: ['#3b82f6','#ef4444','#10b981','#f59e0b','#a855f7','#ec4899'][i % 6],
       capLabel: ['Blue','Red','Green','Amber','Purple','Pink'][i % 6],
+      tabLabel: `${['A','B','C','D','E','F'][i % 6]}-${String(101 + i)}`,
       deviceCount: [4,5,6,3,8,4][i % 6],
       stage: isVerified ? 'verified' : 'identification',
       verifiedAt: isVerified ? baseTs + i * 90 * 1000 : undefined,
@@ -2537,7 +2577,7 @@ function genCompleted() {
   return [
     { id: 'CANE-2026-00301', shipper: 1, patient: 'Lillian Park',  mrn: 'MRN-47102', rfid: '7D584A11', clinic: 'Clinic ABC', specimens: ['Embryos'],          facility: 'Atlanta', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'03' } },
     { id: 'CANE-2026-00302', shipper: 1, patient: 'Marcus Lin',    mrn: 'MRN-47188', rfid: '7D584A82', clinic: 'Clinic ABC', specimens: ['Sperm'],            facility: 'Atlanta', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'04' } },
-    { id: 'CANE-2026-00303', shipper: 2, patient: 'Priya Shah',    mrn: 'MRN-47244', rfid: '7D584B0C', clinic: 'Clinic ABC', specimens: ['Oocyte'],           facility: 'Atlanta', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'05' }, manual: true },
+    { id: 'CANE-2026-00303', shipper: 2, patient: 'Priya Shah',    mrn: 'MRN-47244', rfid: '7D584B0C', clinic: 'Clinic ABC', specimens: ['Oocyte'],           facility: 'Atlanta', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'05' } },
     { id: 'CANE-2026-00304', shipper: 2, patient: 'Hannah Wexler', mrn: 'MRN-47298', rfid: '7D584B7E', clinic: 'Clinic ABC', specimens: ['Embryos','Tissue'], facility: 'Atlanta', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'06' }, resolved: true, flagType: 'Mislabeled cane' },
     { id: 'CANE-2026-00305', shipper: 3, patient: 'Diego Martinez',mrn: 'MRN-47371', rfid: '7D584C44', clinic: 'Clinic ABC', specimens: ['Sperm'],            facility: 'Atlanta', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'08' } },
     { id: 'CANE-2026-00306', shipper: 3, patient: 'Grace Donnelly',mrn: 'MRN-47422', rfid: '7D584C9B', clinic: 'Clinic ABC', specimens: ['Embryos'],          facility: 'Atlanta', loc: { v:'A', t:'04', l:'2', p:'1', cn:'07', s:'09' } },
@@ -2553,7 +2593,7 @@ const LOC_FIELDS = [
   { key: 'sn', lbl: 'Slot',      ph: '01', width: 64, isSelect: true, opts: ['01','02','03','04','05','06','07','08','09','10','11','12'] },
 ];
 
-function BulkAssignBar({ sort, setSort, anchor, setAnchor, onSuggest, onApplyClick, applied, suggested }) {
+function BulkAssignBar({ sort, setSort, sortDir, setSortDir, anchor, setAnchor, onSuggest, onApplyClick, applied, suggested }) {
   const onField = (k, v) => setAnchor({ ...anchor, [k]: v });
   return (
     <div className="assign-bar">
@@ -2563,6 +2603,14 @@ function BulkAssignBar({ sort, setSort, anchor, setAnchor, onSuggest, onApplyCli
           <option value="identification">Identification Order (Default)</option>
           <option value="import">Import Order</option>
         </select>
+        <button
+          className="select-field"
+          style={{cursor: applied ? 'not-allowed' : 'pointer', opacity: applied ? 0.5 : 1, display:'inline-flex', alignItems:'center', gap:6, minWidth:96, justifyContent:'center'}}
+          disabled={applied}
+          onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+          title={sortDir === 'asc' ? 'Earliest identified first — click for newest first' : 'Newest identified first — click for earliest first'}>
+          {sortDir === 'asc' ? '↑ A–Z' : '↓ Z–A'}
+        </button>
       </div>
       <div className="group" style={{flexDirection:'column', alignItems:'flex-start', gap:4}}>
         <span className="group-label">Starting Location</span>
@@ -2791,7 +2839,7 @@ function SearchBox({ value, onChange, resultCount, totalCount }) {
 }
 
 /* -------------------- Identification Table -------------------- */
-function IdentificationTable({ rows, onIdentify, onOpenDrawer, openRowId, search }) {
+function IdentificationTable({ rows, onIdentify, onOpenDrawer, openRowId, search, reactiveLocked }) {
   const searchActive = !!(search && search.trim());
   return (
     <div className="table-wrap">
@@ -2803,18 +2851,16 @@ function IdentificationTable({ rows, onIdentify, onOpenDrawer, openRowId, search
             <th>Patient</th>
             <th>MRN</th>
             <th>DOB</th>
-            <th>Clinic Name</th>
             <th>Specimen Type(s)</th>
-            <th>Facility</th>
             <th>Cane ID</th>
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 && (
             searchActive ? (
-              <tr><td colSpan={8} style={{padding:'30px 16px',color:'#6b7280',textAlign:'center'}}>No canes match "{search.trim()}".</td></tr>
+              <tr><td colSpan={6} style={{padding:'30px 16px',color:'#6b7280',textAlign:'center'}}>No canes match "{search.trim()}".</td></tr>
             ) : (
-              <tr><td colSpan={8} style={{padding:'34px 16px',textAlign:'center'}}>
+              <tr><td colSpan={6} style={{padding:'34px 16px',textAlign:'center'}}>
                 <div style={{display:'inline-flex',alignItems:'center',gap:8,color:'#4ade80',fontWeight:600,fontSize:13}}>
                   <Icon.Check size={13}/>All canes identified for this shipper
                 </div>
@@ -2824,17 +2870,28 @@ function IdentificationTable({ rows, onIdentify, onOpenDrawer, openRowId, search
           )}
           {rows.map(r => {
             const isOpen = openRowId === r.id;
+            const blocked = r.reactivity === 'Reactive' && reactiveLocked;
             return (
               <tr key={r.id} className={`${r.flagged ? 'flagged' : ''} ${isOpen ? 'row-open' : ''}`}>
                 <td>
                   <div className="actions-cell" style={{gap:6}}>
-                    <button
-                      className="btn-teal"
-                      style={{padding:'6px 14px',fontSize:12,fontWeight:600,display:'inline-flex',alignItems:'center',gap:6}}
-                      onClick={() => onIdentify(r)}
-                      title="Identify cane, take photos, and print RFID tag">
-                      Identify
-                    </button>
+                    {blocked ? (
+                      <button
+                        className="btn-outline"
+                        disabled
+                        style={{padding:'6px 12px',fontSize:12,fontWeight:600,display:'inline-flex',alignItems:'center',gap:6,cursor:'not-allowed',opacity:0.7,borderColor:'rgba(250,204,21,0.3)',color:'var(--warning-yellow)'}}
+                        title="Reactive cane — identify all non-reactive canes first. Reactive canes are processed last.">
+                        <Icon.Lock/>Process last
+                      </button>
+                    ) : (
+                      <button
+                        className="btn-teal"
+                        style={{padding:'6px 14px',fontSize:12,fontWeight:600,display:'inline-flex',alignItems:'center',gap:6}}
+                        onClick={() => onIdentify(r)}
+                        title="Identify cane, take photos, and print RFID tag">
+                        Identify
+                      </button>
+                    )}
                     {r.flagged && (
                       <button className="icon-btn warn" title={`Discrepancy: ${r.flagType || 'Flagged'}`} onClick={() => onOpenDrawer(r.id)}><Icon.Warn/></button>
                     )}
@@ -2843,14 +2900,13 @@ function IdentificationTable({ rows, onIdentify, onOpenDrawer, openRowId, search
                 <td>
                   <div className="patient-cell">
                     {r.patient}
+                    {r.reactivity === 'Reactive' && <span className="badge" style={{marginLeft:8,verticalAlign:'middle',background:'rgba(249,128,128,0.1)',color:'#f98080',border:'1px solid rgba(249,128,128,0.3)'}}>Reactive</span>}
                     {r.manual && <span className="badge manual" style={{marginLeft:8,verticalAlign:'middle'}}>Manually Added</span>}
                   </div>
                 </td>
                 <td><span className="mono" style={{color:'#9ca3af', fontSize:11.5}}>{r.mrn}</span></td>
                 <td><span className="mono" style={{color:'#9ca3af', fontSize:11.5}}>{r.dob || '\u2014'}</span></td>
-                <td>{r.clinic}</td>
                 <td>{r.specimens.join(' · ')}</td>
-                <td>{r.facility}</td>
                 <td><span className="mono" style={{color:'#9ca3af'}}>{r.id}</span></td>
               </tr>
             );
@@ -2878,9 +2934,7 @@ function WorkingTable({ rows, onConfirmRow, onOpenDrawer, openRowId, onPlaceRow 
             <th>RFID</th>
             <th>Tag</th>
             <th>Status</th>
-            <th>Clinic Name</th>
             <th>Specimen Type(s)</th>
-            <th>Facility</th>
             <th>Vault</th><th>Tank</th><th>Pie</th><th>Canister</th><th>Slot</th>
             <th>Cane ID</th>
           </tr>
@@ -2932,9 +2986,7 @@ function WorkingTable({ rows, onConfirmRow, onOpenDrawer, openRowId, onPlaceRow 
                     : r.status === 'proposed' ? <span className="badge proposed" title="Mass-applied location — awaiting confirmation"><span className="dotty"/>Pending confirm</span>
                     : <span className="badge intransit"><span className="dotty"/>In Transit</span>}
                 </td>
-                <td>{r.clinic}</td>
                 <td>{r.specimens.join(' · ')}</td>
-                <td>{r.facility}</td>
                 <td><span className={`loc-cell ${loc ? (r.status === 'proposed' ? 'proposed' : 'assigned') : 'empty'}`}>{loc ? loc.v : '—'}</span></td>
                 <td><span className={`loc-cell ${loc ? (r.status === 'proposed' ? 'proposed' : 'assigned') : 'empty'}`}>{loc ? loc.t : '—'}</span></td>
                 <td><span className={`loc-cell ${loc ? (r.status === 'proposed' ? 'proposed' : 'assigned') : 'empty'}`}>{loc ? loc.p : '—'}</span></td>
@@ -2961,7 +3013,7 @@ function CompletedTable({ rows, onOpenDrawer }) {
           <tr>
             <th style={{width:70}}>Actions</th>
             <th style={{width:70}}>Shipper</th>
-            <th>Patient</th><th>MRN</th><th>RFID</th><th>Status</th><th>Clinic Name</th><th>Specimen Type(s)</th><th>Facility</th>
+            <th>Patient</th><th>MRN</th><th>RFID</th><th>Status</th><th>Specimen Type(s)</th>
             <th>Vault</th><th>Tank</th><th>Pie</th><th>Canister</th><th>Slot</th><th>Cane ID</th>
           </tr>
         </thead>
@@ -2986,9 +3038,7 @@ function CompletedTable({ rows, onOpenDrawer }) {
               <td><span className="mono" style={{color:'#9ca3af', fontSize:11.5}}>{r.mrn}</span></td>
               <td><span className="mono" style={{color:'#d1d5db'}}>{r.rfid}</span></td>
               <td><span className="badge atcf"><Icon.Check size={9}/>At CryoFuture</span></td>
-              <td>{r.clinic}</td>
               <td>{r.specimens.join(' · ')}</td>
-              <td>{r.facility}</td>
               <td><span className="loc-cell locked"><Icon.Lock/> {r.loc.v}</span></td>
               <td><span className="loc-cell locked">{r.loc.t}</span></td>
               <td><span className="loc-cell locked">{r.loc.p}</span></td>
@@ -3224,15 +3274,20 @@ function SealVerifyPanel({ shipperId, shipperLabel, shipperSource, verification,
     <div style={{marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 12}}>
       <div style={{
         padding: '14px 18px',
-        background: 'rgba(250,204,21,0.04)',
-        border: '1px solid rgba(250,204,21,0.18)',
+        background: '#14161c',
+        border: '1px solid #23262f',
+        borderLeft: '3px solid var(--cryo-cyan)',
         borderRadius: 8,
-        fontSize: 13,
-        color: '#e5e7eb',
-        display: 'flex', alignItems: 'center', gap: 10
+        display: 'flex', alignItems: 'center', gap: 12
       }}>
-        <Icon.Lock/>
-        <span><strong style={{color: '#FACC15', fontWeight: 600}}>Shipper {shipperId} ({shipperLabel} · {shipperSource})</strong> is locked until chain-of-custody media are captured.</span>
+        <span style={{
+          flexShrink: 0, padding: '3px 10px', borderRadius: 9999,
+          background: 'var(--cryo-cyan)', color: '#04201b',
+          fontSize: 11, fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase'
+        }}>Start here</span>
+        <span style={{fontSize: 13, color: '#d1d5db', lineHeight: 1.45}}>
+          <strong style={{color: '#fff', fontWeight: 600}}>Shipper {shipperId}</strong> · {shipperSource}. Complete both checks below to unlock identification.
+        </span>
       </div>
 
       <StepCard active={!sealDone} complete={sealDone} stepLabel="A"
@@ -3250,8 +3305,8 @@ function SealVerifyPanel({ shipperId, shipperLabel, shipperSource, verification,
       </StepCard>
 
       <StepCard active={sealDone} complete={false} locked={!sealDone} stepLabel="B"
-        title="Photo or video of cane tops"
-        sub={sealDone ? 'Open the shipper and capture the cane tops before removing anything. Verify the count and orientation match the manifest.' : 'Complete step A first.'}>
+        title="Photo or video of the canister (all cane tops visible)"
+        sub={sealDone ? 'Open the shipper and capture the full canister in one frame so every cane top is visible. Verify the count and orientation match the manifest.' : 'Complete step A first.'}>
         <PhotoUploader
           photos={caneTopPhotos}
           onAdd={(items) => setCaneTopPhotos(prev => [...prev, ...items])}
@@ -3394,6 +3449,7 @@ function App() {
   const [status, setStatus] = useState('assigned');
   const [tab, setTab] = useState('identification');
   const [sort, setSort] = useState('identification');
+  const [sortDir, setSortDir] = useState('asc'); // asc = earliest identified first (A–Z)
   const [anchor, setAnchor] = useState({ v:'', tn:'', pn:'', cn:'', sn:'' });
   const [suggested, setSuggested] = useState(false);
   const [rows, setRows] = useState(genCanes());
@@ -3530,9 +3586,11 @@ function App() {
       specimens: data.specimens ? data.specimens.split(' · ') : ['Unknown'],
       facility: (data.facility || '').trim() || 'Atlanta',
       reactivity: 'Pending', freezeDate: '\u2014',
+      fdaEligibility: 'Incomplete',
       status: 'requested', loc: null,
       manual: true,
       capColor: '#a855f7', capLabel: 'Manual', deviceCount: 1,
+      tabLabel: '\u2014',
       stage: 'identification',
     };
     setRows(prev => [newRow, ...prev]);
@@ -3554,6 +3612,7 @@ function App() {
     setSummaryDismissed(false); setShowSkipped(false); setSuggested(false);
     setShowConfirm(false); setSelected([]); setShowAfterState(false); setOpenRowId(null);
     setCurrentShipper(1); setDoneShippers([]); setSearch('');
+    setSortDir('asc');
     setIntakeComplete(false); setShowCompleteModal(false); setShowAddCane(false);
   };
 
@@ -3564,10 +3623,23 @@ function App() {
   const goNext = () => { if (openRowIndex >= 0 && openRowIndex < allRows.length - 1) setOpenRowId(allRows[openRowIndex + 1].id); };
 
   // Stage filtering — Identification = pending; Verified = identified; Placed = placed
-  const idRows       = rows.filter(r => (r.stage || 'identification') === 'identification' && !r.removed);
+  // Identification = pending. Reactive canes are ordered last and held until the
+  // rest of the batch is identified (handled last to limit cross-contamination risk).
+  const idRows = rows
+    .filter(r => (r.stage || 'identification') === 'identification' && !r.removed)
+    .sort((a, b) => {
+      const ar = a.reactivity === 'Reactive' ? 1 : 0;
+      const br = b.reactivity === 'Reactive' ? 1 : 0;
+      if (ar !== br) return ar - br;
+      return (a.importIdx || 0) - (b.importIdx || 0);
+    });
+  // Reactive canes stay locked while any non-reactive cane still needs identifying.
+  const reactiveLocked = idRows.some(r => r.reactivity !== 'Reactive');
   const verifiedRows = rows.filter(r => r.stage === 'verified' && !r.removed).sort((a,b) => {
-    if (sort === 'import') return (a.importIdx||0) - (b.importIdx||0);
-    return (a.verifiedAt||0) - (b.verifiedAt||0); // identification order (default)
+    const base = sort === 'import'
+      ? (a.importIdx||0) - (b.importIdx||0)
+      : (a.verifiedAt||0) - (b.verifiedAt||0); // identification order (default)
+    return sortDir === 'desc' ? -base : base;
   });
   const placedRows   = rows.filter(r => r.stage === 'placed' && !r.removed);
 
@@ -3616,9 +3688,17 @@ function App() {
 
   // Identification action: opens modal; confirmIdentify advances stage.
   const [identifyRow, setIdentifyRow] = useState(null);
+  const [toast, setToast] = useState(null);
+  const toastTimer = useRef(null);
+  const showToast = (msg) => {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2800);
+  };
   const handleIdentify = (row) => setOpenRowId(row.id);
   const confirmIdentify = (rowId, payload) => {
     const ts = Date.now();
+    const target = rows.find(r => r.id === rowId);
     setRows(prev => prev.map(r => {
       if (r.id !== rowId) return r;
       // Assign shipper from current operator context if not already set
@@ -3635,6 +3715,21 @@ function App() {
     }));
     if (status === 'assigned') setStatus('in_progress');
     setIdentifyRow(null);
+    const name = target ? target.patient : 'Cane';
+    showToast(payload?.discrepancy
+      ? `${name} identified with a flag — moved to Assigned`
+      : `${name} identified — moved to Assigned`);
+  };
+
+  const removeDiscrepancy = (entry) => {
+    setRows(prev => prev.map(r => {
+      if (r.id !== entry.caneId) return r;
+      if (entry.type === 'manual') return { ...r, manual: false };
+      if (entry.type === 'removed') return { ...r, removed: false, removedAt: undefined, removedBy: undefined };
+      // flagged field discrepancy
+      return { ...r, flagged: false, flagType: undefined, flagNote: undefined, discrepancyDetail: undefined };
+    }));
+    showToast('Discrepancy removed from the report');
   };
 
   const handleMarkShipperDone = (id) => {
@@ -3653,6 +3748,7 @@ function App() {
             rows={rows}
             onClose={() => setDiscrepancySheetOpen(false)}
             onOpenCane={(id) => { setDiscrepancySheetOpen(false); setOpenRowId(id); }}
+            onRemoveDiscrepancy={removeDiscrepancy}
           />
         ) : (
           <>
@@ -3720,21 +3816,14 @@ function App() {
         </div>
 
         {tab === 'identification' && (
-          <>
-            <div className="stage-intro">
-              <div className="si-eyebrow">Step 1 · Identification</div>
-              <div className="si-text">Verify the shipper seal and canister tops before opening. Then pull each cane, confirm patient + specimen data, and print the RFID tag. Identified canes flow to <strong style={{color:'#fff'}}>Assigned</strong> in identification order.</div>
-            </div>
+          !sealVerified[currentShipper]?.caneTopVerifiedAt ? (
+            /* ---- Starting point: one focused task, verify the shipper ---- */
+            <>
+              <div className="stage-intro">
+                <div className="si-eyebrow">Step 1 of 3 · Identification</div>
+                <div className="si-text">Start by confirming the shipper arrived sealed. The two checks below capture chain-of-custody evidence. No canes can be identified until both are done.</div>
+              </div>
 
-            <ShipperBar
-              shippers={SHIPPERS}
-              currentShipper={currentShipper}
-              counts={shipperCounts}
-              onAdvance={handleSelectShipper}
-              sealVerified={sealVerified}
-            />
-
-            {!sealVerified[currentShipper]?.caneTopVerifiedAt ? (
               <SealVerifyPanel
                 shipperId={currentShipper}
                 shipperLabel={(SHIPPERS.find(s => s.id === currentShipper) || {}).label || ''}
@@ -3743,34 +3832,49 @@ function App() {
                 onUpdate={(v) => setSealVerified(prev => ({...prev, [currentShipper]: {...(prev[currentShipper] || {}), ...v}}))}
                 onComplete={(v) => setSealVerified(prev => ({...prev, [currentShipper]: v}))}
               />
-            ) : (
-              <>
-                <SealVerifiedBanner shipperId={currentShipper} verification={sealVerified[currentShipper]}/>
+            </>
+          ) : (
+            /* ---- Working view: identify the canes ---- */
+            <>
+              <div className="stage-intro">
+                <div className="si-eyebrow">Step 1 of 3 · Identification</div>
+                <div className="si-text">Pull each cane, confirm patient and specimen data, and print the RFID tag. Identified canes flow to <strong style={{color:'#fff'}}>Assigned</strong> in identification order.</div>
+              </div>
 
-                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,margin:'4px 0 -4px'}}>
-                  <span className="small" style={{color:'#6b7280',fontSize:12}}>Cane not on the manifest? Add it manually — it will be flagged as a discrepancy.</span>
-                  <button className="btn-outline" onClick={() => setShowAddCane(true)} title="Add a cane that was not on the import file">
-                    <span style={{display:'inline-flex',alignItems:'center',gap:6}}>+ Add cane</span>
-                  </button>
-                </div>
+              <ShipperBar
+                shippers={SHIPPERS}
+                currentShipper={currentShipper}
+                counts={shipperCounts}
+                onAdvance={handleSelectShipper}
+                sealVerified={sealVerified}
+              />
 
-                <SearchBox
-                  value={search}
-                  onChange={setSearch}
-                  resultCount={searchedRows.length}
-                  totalCount={currentShipperRows.length}
-                />
+              <SealVerifiedBanner shipperId={currentShipper} verification={sealVerified[currentShipper]}/>
 
-                <IdentificationTable
-                  rows={searchedRows}
-                  onIdentify={handleIdentify}
-                  onOpenDrawer={(id) => setOpenRowId(id)}
-                  openRowId={openRowId}
-                  search={search}
-                />
-              </>
-            )}
-          </>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,margin:'4px 0 -4px'}}>
+                <span className="small" style={{color:'#6b7280',fontSize:12}}>Cane not on the manifest? Add it manually — it will be flagged as a discrepancy.</span>
+                <button className="btn-outline" onClick={() => setShowAddCane(true)} title="Add a cane that was not on the import file">
+                  <span style={{display:'inline-flex',alignItems:'center',gap:6}}>+ Add cane</span>
+                </button>
+              </div>
+
+              <SearchBox
+                value={search}
+                onChange={setSearch}
+                resultCount={searchedRows.length}
+                totalCount={currentShipperRows.length}
+              />
+
+              <IdentificationTable
+                rows={searchedRows}
+                onIdentify={handleIdentify}
+                onOpenDrawer={(id) => setOpenRowId(id)}
+                openRowId={openRowId}
+                search={search}
+                reactiveLocked={reactiveLocked}
+              />
+            </>
+          )
         )}
 
         {tab === 'verified' && (
@@ -3783,6 +3887,7 @@ function App() {
             <div className="assign-sticky-wrap">
               <BulkAssignBar
                 sort={sort} setSort={setSort}
+                sortDir={sortDir} setSortDir={setSortDir}
                 anchor={anchor} setAnchor={setAnchor}
                 onSuggest={handleSuggest}
                 onApplyClick={() => setShowConfirm(true)}
@@ -3830,6 +3935,12 @@ function App() {
         )}
 
         
+
+        {toast && (
+          <div className="cf-toast" role="status">
+            <Icon.Check size={13}/>{toast}
+          </div>
+        )}
 
         {showCompleteModal && (
           <CompleteIntakeModal

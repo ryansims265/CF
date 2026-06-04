@@ -606,6 +606,7 @@ html, body {
   }
   @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
   .badge.awaittag  { background: rgba(250,204,21,0.08); color: var(--warning-yellow); border: 1px solid rgba(250,204,21,0.28); }
+  .badge.awaitscan { background: rgba(24,227,187,0.08); color: var(--cryo-cyan); border: 1px solid rgba(24,227,187,0.28); }
   .badge.multi     { background: rgba(202,191,253,0.08); color: var(--purple-300); border: 1px solid rgba(202,191,253,0.3); cursor: help; }
   .row-identify-btn {
     display: inline-flex; align-items: center; gap: 6px;
@@ -1855,6 +1856,11 @@ function CaneDrawer({
   const [discrepancyNote, setDiscrepancyNote] = dUseState('');
   const [damaged, setDamaged] = dUseState(false);
 
+  // Follow-up + resolve state (verified/placed stages)
+  const [followUpNote, setFollowUpNote] = dUseState('');
+  const [resolveOpen, setResolveOpen] = dUseState(false);
+  const [resolveNote, setResolveNote] = dUseState('');
+
   // Re-init state when row changes
   dUseEffect(() => {
     setLoc({
@@ -1864,6 +1870,7 @@ function CaneDrawer({
     setPhotos([]); setFiles([]);
     setPrinted(false); setPrinting(false); setAssociating(false); setTagAssociated(false);
     setDiscrepancy(false); setDiscrepancyFields({}); setDiscrepancyNote(''); setDamaged(false);
+    setFollowUpNote(''); setResolveOpen(false); setResolveNote('');
   }, [row.id]);
 
   // Esc / nav keys
@@ -1950,7 +1957,7 @@ function CaneDrawer({
   const StatusBadge = () => {
     if (row.flagged) return <span className="badge flagged"><span className="dotty"/>Flagged</span>;
     if (row.stage === 'placed') return <span className="badge atcf"><Icon.Check size={9}/>Stored</span>;
-    if (row.status === 'assigned') return <span className="badge atcf" title="Location assigned. Awaiting vault scan to confirm placement."><span className="dotty"/>Awaiting vault scan</span>;
+    if (row.status === 'assigned') return <span className="badge atcf" title="Location assigned. Awaiting placement scan to confirm the cane is physically in its slot."><span className="dotty"/>Awaiting placement scan</span>;
     if (row.status === 'proposed') return <span className="badge proposed"><span className="dotty"/>Location proposed</span>;
     if (row.stage === 'verified') return <span className="badge intransit"><span className="dotty"/>Needs location</span>;
     return <span className="badge intransit"><span className="dotty"/>Needs ID</span>;
@@ -2031,13 +2038,13 @@ function CaneDrawer({
                       )}
                     </div>
                     <div className={`rd-value ${f.mono?'mono':''}`} style={f.tone}>
+                      {flagMode && flagged && <span style={{fontSize:11,fontWeight:600,color:'#9ca3af',marginRight:6,textTransform:'none',letterSpacing:0}}>Expected:</span>}
                       {f.swatch
                         ? <span><span style={{display:'inline-block',width:11,height:11,borderRadius:'50%',background:f.swatch,marginRight:8,verticalAlign:'middle',border:'1px solid rgba(255,255,255,0.2)'}}/>{f.expected}</span>
                         : f.expected}
                     </div>
                     {flagMode && flagged && (
                       <div style={{marginTop:6}}>
-                        <div style={{fontSize:11.5,color:'#9ca3af',marginBottom:4}}>Expected: <span className="mono" style={{color:'#e5e7eb'}}>{f.expected}</span></div>
                         <input value={discrepancyFields[f.key]?.actual || ''} onChange={(e) => setDiscActual(f.key, e.target.value)} placeholder="Actual value on cane"
                           style={{width:'100%',padding:'5px 8px',fontSize:12,background:'#0f1117',border:'1px solid #2a2d36',borderRadius:4,color:'#fff',fontFamily:'inherit'}}/>
                       </div>
@@ -2231,14 +2238,57 @@ function CaneDrawer({
             </section>
           )}
 
-          {/* ============ FLAG/DISCREPANCY (verified/placed stages — only when flagged) ============ */}
-          {!isIdent && row.flagged && (
+          {/* ============ DISCREPANCY (verified/placed stages) — follow up + resolve ============ */}
+          {!isIdent && (row.flagged || row.resolvedFlag) && (
             <section className="dr-section">
-              <div className="dr-section-label">Discrepancy Flag</div>
-              <div>
-                <span className="badge flagged" style={{padding:'5px 10px',display:'inline-flex',alignItems:'center',gap:4}}><Icon.Warn/>{row.flagType || 'Flagged'}</span>
-                {row.flagNote && <div style={{fontSize:11.5,color:'#9ca3af',marginTop:8,padding:8,background:'rgba(249,128,128,0.04)',border:'1px solid rgba(249,128,128,0.15)',borderRadius:4,lineHeight:1.5}}>{row.flagNote}</div>}
-              </div>
+              <div className="dr-section-label">Discrepancy</div>
+              {row.flagged ? (
+                <>
+                  <div>
+                    <span className="badge flagged" style={{padding:'5px 10px',display:'inline-flex',alignItems:'center',gap:4}}><Icon.Warn/>{row.flagType || 'Flagged'}</span>
+                    {row.flagNote && <div style={{fontSize:11.5,color:'#9ca3af',marginTop:8,padding:8,background:'rgba(249,128,128,0.04)',border:'1px solid rgba(249,128,128,0.15)',borderRadius:4,lineHeight:1.5}}>{row.flagNote}</div>}
+                  </div>
+
+                  {row.followUps && row.followUps.length > 0 && (
+                    <div style={{marginTop:10,display:'flex',flexDirection:'column',gap:6}}>
+                      {row.followUps.map((f, i) => (
+                        <div key={i} style={{fontSize:11.5,color:'#d1d5db',padding:'6px 8px',background:'rgba(255,255,255,0.03)',border:'1px solid #2a2d36',borderRadius:4,lineHeight:1.5}}>
+                          <div style={{color:'#6b7280',fontSize:10.5,marginBottom:2}}>{fmtEventTime(f.at)} · {f.by}</div>
+                          {f.note}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div style={{marginTop:10}}>
+                    <label style={{display:'block',fontSize:11,color:'#9ca3af',fontWeight:600,marginBottom:5,textTransform:'uppercase',letterSpacing:'0.05em'}}>Add follow-up</label>
+                    <textarea value={followUpNote} onChange={(e) => setFollowUpNote(e.target.value)} rows={2} placeholder="Log a clinic call, email, or any new info. Kept on the audit trail." style={{width:'100%',padding:'7px 10px',fontSize:12.5,background:'#0f1117',border:'1px solid #2a2d36',borderRadius:4,color:'#fff',fontFamily:'inherit',resize:'vertical'}}/>
+                    <button className="btn-outline" disabled={!followUpNote.trim()} onClick={() => { onAddFlag(row.id, followUpNote); setFollowUpNote(''); }} style={{marginTop:6,padding:'6px 12px',fontSize:12,opacity:followUpNote.trim()?1:0.5,cursor:followUpNote.trim()?'pointer':'not-allowed'}}>Add follow-up</button>
+                  </div>
+
+                  <div style={{marginTop:12,paddingTop:12,borderTop:'1px solid #2a2d36'}}>
+                    {!resolveOpen ? (
+                      <button className="btn-teal" onClick={() => setResolveOpen(true)} style={{padding:'8px 14px',fontSize:12.5,fontWeight:600}}>Resolve discrepancy</button>
+                    ) : (
+                      <div>
+                        <label style={{display:'block',fontSize:11,color:'#9ca3af',fontWeight:600,marginBottom:5,textTransform:'uppercase',letterSpacing:'0.05em'}}>Resolution note <span style={{color:'#f98080'}}>*</span></label>
+                        <textarea value={resolveNote} onChange={(e) => setResolveNote(e.target.value)} rows={2} placeholder="How was this resolved? Include any reference (clinic call, ticket #). Recorded with your name and timestamp." style={{width:'100%',padding:'7px 10px',fontSize:12.5,background:'#0f1117',border:'1px solid #2a2d36',borderRadius:4,color:'#fff',fontFamily:'inherit',resize:'vertical'}}/>
+                        <div style={{display:'flex',gap:8,marginTop:8}}>
+                          <button className="btn-outline" onClick={() => { setResolveOpen(false); setResolveNote(''); }} style={{padding:'6px 12px',fontSize:12}}>Cancel</button>
+                          <button className="btn-teal" disabled={!resolveNote.trim()} onClick={() => { onResolveFlag(row.id, resolveNote); setResolveOpen(false); setResolveNote(''); }} style={{padding:'6px 12px',fontSize:12,fontWeight:600,opacity:resolveNote.trim()?1:0.5,cursor:resolveNote.trim()?'pointer':'not-allowed'}}>Confirm resolution</button>
+                        </div>
+                      </div>
+                    )}
+                    <div style={{fontSize:11,color:'#6b7280',marginTop:8,lineHeight:1.5}}>Resolving clears the flag and unblocks intake completion. The cane can be stored whether or not the flag is resolved.</div>
+                  </div>
+                </>
+              ) : (
+                <div style={{fontSize:11.5,color:'#d1d5db',padding:8,background:'rgba(34,197,94,0.06)',border:'1px solid rgba(34,197,94,0.2)',borderRadius:4,lineHeight:1.5}}>
+                  <span style={{color:'#4ade80',fontWeight:600,display:'inline-flex',alignItems:'center',gap:4}}><Icon.Check size={11}/>Resolved{row.resolvedFlag?.type ? ' · ' + row.resolvedFlag.type : ''}</span>
+                  {row.resolvedFlag?.note && <div style={{marginTop:4}}>{row.resolvedFlag.note}</div>}
+                  {row.resolvedFlag?.by && <div style={{marginTop:2,color:'#6b7280'}}>{row.resolvedFlag.by}{row.resolvedFlag.at ? ' · ' + fmtEventTime(row.resolvedFlag.at) : ''}</div>}
+                </div>
+              )}
             </section>
           )}
         </div>
@@ -2883,7 +2933,7 @@ function ApplySummary({ assigned, reactiveSkipped, pending, onDismiss, onConfirm
         </span>
       </div>
       <div style={{fontSize:11.5, color:'#9ca3af', paddingLeft:18}}>
-        Locations are proposed but not committed. Confirm to move these canes into <strong style={{color:'var(--cryo-cyan)'}}>Awaiting vault scan</strong>{reactiveSkipped > 0 && <>. Reactive canes were skipped — assign their locations manually in the drawer</>}.
+        Locations are proposed but not committed. Confirm to move these canes into <strong style={{color:'var(--cryo-cyan)'}}>Awaiting placement scan</strong>{reactiveSkipped > 0 && <>. Reactive canes were skipped — assign their locations manually in the drawer</>}.
       </div>
     </div>
   );
@@ -3153,11 +3203,11 @@ function WorkingTable({ rows, onConfirmRow, onOpenDrawer, openRowId, onPlaceRow,
                 <td>
                   <div className="actions-cell">
                     <button
-                      className="btn-teal"
-                      style={{padding:'6px 14px',fontSize:12,fontWeight:600}}
+                      className="btn-outline"
+                      style={{padding:'6px 14px',fontSize:12}}
                       onClick={() => onOpenDrawer(r.id)}
-                      title="Open cane details">
-                      Open
+                      title="View cane details">
+                      View
                     </button>
                     {r.flagged && (
                       <button className="icon-btn warn" title={`Discrepancy: ${r.flagType || 'Flagged'}`} onClick={() => onOpenDrawer(r.id)}><Icon.Warn/></button>
@@ -3165,8 +3215,8 @@ function WorkingTable({ rows, onConfirmRow, onOpenDrawer, openRowId, onPlaceRow,
                     {r.status === 'proposed' && (
                       <button className="confirm-row-btn" title="Confirm proposed location" onClick={(e) => { e.stopPropagation(); onConfirmRow(r.id); }}><Icon.Check size={11}/>Confirm</button>
                     )}
-                    {r.status === 'assigned' && !r.flagged && r.rfid && r.rfid !== '—' && (
-                      <button className="confirm-row-btn" title="Simulate handheld vault scan — confirms physical placement and moves the cane to Stored" onClick={(e) => { e.stopPropagation(); onPlaceRow(r.id); }}><Icon.Check size={11}/>Store</button>
+                    {r.status === 'assigned' && r.rfid && r.rfid !== '—' && (
+                      <button className="confirm-row-btn" title="Stand-in for the handheld placement scan (CryoFuture Signal). In production the cane moves to Stored when the device records the scan. Flagged canes can be stored; the discrepancy stays open until it's resolved." onClick={(e) => { e.stopPropagation(); onPlaceRow(r.id); }}><Icon.Check size={11}/>Scan to store</button>
                     )}
                   </div>
                 </td>
@@ -3182,9 +3232,11 @@ function WorkingTable({ rows, onConfirmRow, onOpenDrawer, openRowId, onPlaceRow,
                 <td><span className="mono" style={{color:'#9ca3af', fontSize:11.5}}>{r.dob || '\u2014'}</span></td>
                 <td><span className="mono" style={{color: r.rfid === '—' ? '#4b5563' : '#d1d5db'}}>{r.rfid}</span></td>
                 <td>
-                  {r.rfid && r.rfid !== '—'
-                    ? <span className="badge tagbound" title="RFID tag printed and bound to this cane"><Icon.Check size={9}/>RFID bound</span>
-                    : <span className="badge awaittag" title="No RFID tag bound yet. Print and scan a tag before this cane can move to Stored."><span className="dotty"/>Needs RFID tag</span>}
+                  {!(r.rfid && r.rfid !== '—')
+                    ? <span className="badge awaittag" title="No RFID tag linked yet. Print and scan a tag during identification."><span className="dotty"/>Needs RFID tag</span>
+                    : r.status === 'assigned'
+                      ? <span className="badge awaitscan" title="Tag linked and location confirmed. Waiting on the handheld placement scan (CryoFuture Signal) to move this cane to Stored."><span className="dotty"/>Awaiting placement scan</span>
+                      : <span className="badge tagbound" title="RFID tag printed and linked to this cane"><Icon.Check size={9}/>RFID tagged</span>}
                 </td>
                 <td>{r.specimens.join(' · ')}</td>
                 <td><span className={`loc-cell ${loc ? (r.status === 'proposed' ? 'proposed' : 'assigned') : 'empty'}`}>{loc ? loc.v : '—'}</span></td>
@@ -3232,7 +3284,9 @@ function CompletedTable({ rows, onOpenDrawer }) {
                 <div className="patient-cell">
                   {r.patient}
                   {r.manual && <span className="badge manual" style={{marginLeft:8,verticalAlign:'middle'}}>Manually Added</span>}
+                  {r.flagged && <span className="badge flagged" style={{marginLeft:8,verticalAlign:'middle',display:'inline-flex',alignItems:'center',gap:4}}><Icon.Warn/>Discrepancy open</span>}
                   {r.resolved && <span className="badge" style={{background:'rgba(156,163,175,0.12)',color:'#9ca3af',border:'1px solid rgba(156,163,175,0.25)',marginLeft:8,verticalAlign:'middle'}}><Icon.Check size={9}/>Resolved · {r.flagType}</span>}
+                  {r.resolvedFlag && !r.flagged && !r.resolved && <span className="badge" style={{background:'rgba(34,197,94,0.1)',color:'#4ade80',border:'1px solid rgba(34,197,94,0.25)',marginLeft:8,verticalAlign:'middle',display:'inline-flex',alignItems:'center',gap:4}}><Icon.Check size={9}/>Discrepancy resolved</span>}
                 </div>
               </td>
               <td><span className="mono" style={{color:'#9ca3af', fontSize:11.5}}>{r.mrn}</span></td>
@@ -3273,7 +3327,14 @@ const FRESH_CANISTERS = [
   { v:'A', tn:'04', pn:'2', cn:'02', sn:'01', label:'A · Tank 04 · Pie 2 · Canister 02', free: 24 },
   { v:'B', tn:'01', pn:'1', cn:'05', sn:'01', label:'B · Tank 01 · Pie 1 · Canister 05', free: 24 },
 ];
-function SuggestModal({ onCancel, onChoose }) {
+function SuggestModal({ anchor, onCancel, onChoose }) {
+  const seed = (anchor && anchor.v) ? anchor : (FRESH_CANISTERS.find(c => c.recommended) || FRESH_CANISTERS[0]);
+  const [draft, setDraft] = useState({ v: seed.v || '', tn: seed.tn || '', pn: seed.pn || '', cn: seed.cn || '', sn: seed.sn || '01' });
+  const onField = (k, v) => setDraft(prev => ({ ...prev, [k]: v }));
+  const pickCanister = (c) => setDraft({ v: c.v, tn: c.tn, pn: c.pn, cn: c.cn, sn: c.sn || '01' });
+  const matches = (c) => c.v === draft.v && c.tn === draft.tn && c.pn === draft.pn && c.cn === draft.cn;
+  const complete = draft.v && draft.tn && draft.pn && draft.cn && draft.sn;
+
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onCancel(); };
     document.addEventListener('keydown', onKey);
@@ -3282,36 +3343,69 @@ function SuggestModal({ onCancel, onChoose }) {
   return (
     <>
       <div className="im-overlay" onClick={onCancel}/>
-      <div className="im-modal" style={{width:520}} role="dialog" aria-label="Suggest starting canister">
+      <div className="im-modal" style={{width:560}} role="dialog" aria-label="Suggest starting location">
         <header className="im-header">
           <div>
-            <div className="im-eyebrow">Suggest Location · Choose Canister</div>
-            <div className="im-title" style={{marginTop:4}}>Pick a fresh canister to start the block</div>
-            <div className="im-sub" style={{marginTop:4}}>The system fills sequential slots from here. You can edit the anchor after picking.</div>
+            <div className="im-eyebrow">Suggest Location · Starting Point</div>
+            <div className="im-title" style={{marginTop:4}}>Set the starting location for the block</div>
+            <div className="im-sub" style={{marginTop:4}}>Pick a recommended fresh canister or set the location by hand. Canes fill sequential slots from here.</div>
           </div>
           <button className="dr-close" onClick={onCancel} aria-label="Close"><Icon.X/></button>
         </header>
-        <div className="im-body" style={{padding:'18px 22px', display:'flex', flexDirection:'column', gap:10}}>
-          {FRESH_CANISTERS.map((c, i) => (
-            <button key={i} className="sg-card" onClick={() => onChoose(c)}>
-              <div className="sg-card-icon">
-                <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                  <rect x="3" y="3" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M11 7v8M7 11h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </div>
-              <div className="sg-card-body">
-                <div className="sg-card-title">Fresh canister</div>
-                <div className="sg-card-anchor mono">{c.label} · Slot 01</div>
-                <div className="sg-card-sub">{c.free} slots free</div>
-              </div>
-              {c.recommended && <span className="sg-card-pill recommend">Recommended</span>}
-            </button>
-          ))}
+        <div className="im-body" style={{padding:'18px 22px', display:'flex', flexDirection:'column', gap:16}}>
+          <div>
+            <div style={{fontSize:11,color:'#9ca3af',fontWeight:600,marginBottom:8,textTransform:'uppercase',letterSpacing:'0.05em'}}>Recommended fresh canisters</div>
+            <div style={{display:'flex', flexDirection:'column', gap:10}}>
+              {FRESH_CANISTERS.map((c, i) => {
+                const sel = matches(c);
+                return (
+                  <button key={i} className="sg-card" onClick={() => pickCanister(c)} style={sel ? {borderColor:'var(--cryo-cyan)', background:'rgba(24,227,187,0.06)'} : undefined}>
+                    <div className="sg-card-icon">
+                      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                        <rect x="3" y="3" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                        <path d="M11 7v8M7 11h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                    </div>
+                    <div className="sg-card-body">
+                      <div className="sg-card-title">Fresh canister</div>
+                      <div className="sg-card-anchor mono">{c.label} · Slot 01</div>
+                      <div className="sg-card-sub">{c.free} slots free</div>
+                    </div>
+                    {sel
+                      ? <span className="sg-card-pill" style={{background:'rgba(24,227,187,0.15)', color:'var(--cryo-cyan)'}}>Selected</span>
+                      : (c.recommended && <span className="sg-card-pill recommend">Recommended</span>)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <div style={{fontSize:11,color:'#9ca3af',fontWeight:600,marginBottom:8,textTransform:'uppercase',letterSpacing:'0.05em'}}>Starting Location</div>
+            <div className="loc-inputs">
+              {LOC_FIELDS.map(f => (
+                <div key={f.key} className="loc-seg">
+                  <span className="seg-lbl">{f.lbl}</span>
+                  {f.isSelect ? (
+                    <select value={draft[f.key] || ''} onChange={(e) => onField(f.key, e.target.value)} style={{width: f.width}}>
+                      <option value="" disabled>{f.ph}</option>
+                      {f.opts.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  ) : (
+                    <input placeholder={f.ph} value={draft[f.key] || ''} onChange={(e) => onField(f.key, e.target.value)} style={{width: f.width}}/>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div style={{fontSize:11,color:'#6b7280',marginTop:8}}>Slot is where the first cane lands. The rest fill in order from there.</div>
+          </div>
         </div>
         <footer className="im-footer">
-          <div style={{fontSize:11.5, color:'#6b7280'}}>You can edit the anchor after picking.</div>
-          <button className="btn-outline" style={{padding:'7px 14px',fontSize:12.5}} onClick={onCancel}>Cancel</button>
+          <div style={{fontSize:11.5, color:'#6b7280'}}>You can still edit the location after applying.</div>
+          <div style={{display:'flex', gap:8}}>
+            <button className="btn-outline" style={{padding:'7px 14px',fontSize:12.5}} onClick={onCancel}>Cancel</button>
+            <button className="btn-teal" disabled={!complete} onClick={() => onChoose(draft)} style={{padding:'7px 14px',fontSize:12.5,fontWeight:600,opacity:complete?1:0.5,cursor:complete?'pointer':'not-allowed'}}>Apply starting location</button>
+          </div>
         </footer>
       </div>
     </>
@@ -3773,11 +3867,26 @@ function App() {
   const handleSaveFlag = (rowId, type, note) => {
     setRows(rows.map(r => r.id === rowId ? { ...r, flagType: type, flagNote: note } : r));
   };
-  const handleResolveFlag = (rowId, type, note) => {
-    setRows(rows.map(r => r.id === rowId ? { ...r, flagged: false, status: r.status === 'assigned' ? 'assigned' : 'requested', resolvedFlag: { type, note } } : r));
+  const handleResolveFlag = (rowId, note) => {
+    const at = Date.now();
+    setRows(rows.map(r => r.id === rowId ? {
+      ...r,
+      flagged: false,
+      resolvedFlag: { type: r.flagType, note: (note || '').trim(), by: OPERATOR, at },
+      events: [...(r.events || []), { type: 'resolved', label: `Discrepancy resolved${note && note.trim() ? ': ' + note.trim() : ''}`, at, by: OPERATOR }],
+    } : r));
+    showToast('Discrepancy resolved');
   };
-  const handleAddFlag = (rowId, type, note) => {
-    setRows(rows.map(r => r.id === rowId ? { ...r, flagged: true, flagType: type, flagNote: note } : r));
+  const handleAddFlag = (rowId, note) => {
+    if (!note || !note.trim()) return;
+    const at = Date.now();
+    const text = note.trim();
+    setRows(rows.map(r => r.id === rowId ? {
+      ...r,
+      followUps: [...(r.followUps || []), { note: text, by: OPERATOR, at }],
+      events: [...(r.events || []), { type: 'flag', label: `Follow-up added: ${text}`, at, by: OPERATOR }],
+    } : r));
+    showToast('Follow-up added');
   };
   const handleAddManualCane = (data) => {
     const id = String(900000 + (Date.now() % 99999));
@@ -3884,12 +3993,17 @@ function App() {
   // Reactive canes stay locked while any non-reactive cane still needs identifying.
   const reactiveLocked = idRows.some(r => r.reactivity !== 'Reactive');
   const verifiedRows = rows.filter(r => r.stage === 'verified' && !r.removed).sort((a,b) => {
+    // Reactive canes are grouped at the bottom — they're stored last during intake.
+    const ar = a.reactivity === 'Reactive' ? 1 : 0;
+    const br = b.reactivity === 'Reactive' ? 1 : 0;
+    if (ar !== br) return ar - br;
     const base = sort === 'import'
       ? (a.importIdx||0) - (b.importIdx||0)
       : (a.verifiedAt||0) - (b.verifiedAt||0); // identification order (default)
     return sortDir === 'desc' ? -base : base;
   });
   const placedRows   = rows.filter(r => r.stage === 'placed' && !r.removed);
+  const awaitingScanCount = verifiedRows.filter(r => r.status === 'assigned' && r.rfid && r.rfid !== '\u2014').length;
 
   // Intake completion: every non-removed cane must reach the Placed stage.
   const liveRows = rows.filter(r => !r.removed);
@@ -4198,7 +4312,7 @@ function App() {
           <>
             <div className="stage-intro">
               <div className="si-eyebrow">Step 2 of 3 · Ready to Store — Assign Locations</div>
-              <div className="si-text">Identified canes are listed in confirmation order. Use <strong style={{color:'#fff'}}>Suggest Location</strong> to pick a fresh canister and fill slots sequentially, then confirm. Each cane then needs a vault scan to move to <strong style={{color:'#fff'}}>Stored</strong>.</div>
+              <div className="si-text">Identified canes are listed in confirmation order. Use <strong style={{color:'#fff'}}>Suggest Location</strong> to pick a fresh canister and fill slots sequentially, then confirm. Each cane then needs a placement scan to move to <strong style={{color:'#fff'}}>Stored</strong>.</div>
             </div>
 
             <div className="assign-sticky-wrap">
@@ -4242,6 +4356,7 @@ function App() {
 
         {suggestOpen && (
           <SuggestModal
+            anchor={anchor}
             onCancel={() => setSuggestOpen(false)}
             onChoose={applySuggestion}
           />
@@ -4278,6 +4393,7 @@ function App() {
         <div className="table-footer">
           <div className="left">
             <span>{visibleCount} {tab === 'identification' ? 'canes to ID' : tab === 'verified' ? 'canes ready to store' : 'canes stored'}</span>
+            {tab === 'verified' && awaitingScanCount > 0 && <span style={{color:'var(--cryo-cyan)'}}>· {awaitingScanCount} awaiting placement scan</span>}
             {applied && tab === 'verified' && <span style={{color:'#6b7280'}}>· last apply: just now</span>}
           </div>
         </div>
@@ -4300,8 +4416,8 @@ function App() {
             onNext={goNext}
             onSetLocation={(id, loc) => handleSetLocation(id, loc)}
             onSaveFlag={(id, type, note) => handleSaveFlag(id, type, note)}
-            onResolveFlag={(id, type, note) => handleResolveFlag(id, type, note)}
-            onAddFlag={(id, type, note) => handleAddFlag(id, type, note)}
+            onResolveFlag={(id, note) => handleResolveFlag(id, note)}
+            onAddFlag={(id, note) => handleAddFlag(id, note)}
             onToggleManual={handleToggleManual}
             onRemoveRow={handleRemoveRow}
             onConfirmIdentify={(id, payload) => { confirmIdentify(id, payload); setOpenRowId(null); }}

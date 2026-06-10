@@ -253,7 +253,7 @@ html, body {
     font-weight: 400; margin-left: 10px; letter-spacing: 0;
   }
   .page-header-r { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; flex: none; }
-  .page-header-actions { display: flex; align-items: center; gap: 8px; }
+  .page-header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
   .assign-control {
     display: inline-flex; align-items: center; gap: 7px;
     height: 34px; padding: 0 6px 0 12px; border-radius: 7px;
@@ -3728,7 +3728,7 @@ function CompleteIntakeModal({ count, onConfirm, onClose }) {
 
 const ATTEST_LANGUAGE = "I, the undersigned authorized representative of the receiving clinic, attest that I have reviewed all discrepancies identified in this report and provide my response to each. I confirm that my responses are accurate and complete to the best of my knowledge, that I have performed all necessary verification and due diligence, and I accept this document as the reconciled record of transfer. Where a return shipment has been requested, I acknowledge that fulfillment is subject to CryoFuture's next scheduled shipment cycle. This attestation is binding and will be retained as part of the permanent transfer record.";
 
-function AttestationModal({ rows, ticket, onClose, onSign, signed }) {
+function AttestationModal({ rows, ticket, onClose, onSign, signed, onExport }) {
   const [name, setName] = useState('');
   const [title, setTitle] = useState('');
   const [agreed, setAgreed] = useState(false);
@@ -3818,8 +3818,11 @@ function AttestationModal({ rows, ticket, onClose, onSign, signed }) {
               <div style={{fontSize:12.5,color:'#cbd5e1',lineHeight:1.6,marginBottom:10}}>{ATTEST_LANGUAGE}</div>
               <div style={{display:'inline-flex',alignItems:'center',gap:8,fontSize:12.5,color:'#4ade80',fontWeight:600}}><Icon.Lock/>Signed by {signed.name}, {signed.title} · {new Date(signed.at).toLocaleString()}</div>
             </div>
-            <div style={{display:'flex',justifyContent:'flex-end',marginTop:16}}>
+            <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:16}}>
               <button className="btn-outline" onClick={onClose}>Close</button>
+              <button className="btn-teal" onClick={() => onExport && onExport()} title="Download the discrepancy report with this attestation">
+                <span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon.Download/>Download report (PDF)</span>
+              </button>
             </div>
           </div>
         ) : (
@@ -4178,6 +4181,49 @@ function App() {
     setAttestOpen(true);
   };
 
+  // Demo: jump straight to the finalized, signed end state (records + exports visible).
+  const demoCompleted = () => {
+    const baseAt = Date.now() - 35 * 60 * 1000;
+    let slot = 10;
+    let n = 0;
+    setRows(prev => prev.map(r => {
+      if (r.removed) return r;
+      n += 1;
+      const t = baseAt + n * 40 * 1000;
+      const resAt = t + 5 * 60 * 1000;
+      const storeAt = t + 8 * 60 * 1000;
+      const loc = r.loc || { v: 'A', t: '04', l: '2', p: '1', cn: '09', s: String(slot++).padStart(2, '0') };
+      const idEvents = [
+        { type: 'identified', label: 'Identity confirmed against manifest', at: t, by: 'Ryan Sims', device: 'CryoFuture Signal' },
+        { type: 'rfid', label: 'RFID tag associated', at: t + 30000, by: 'Ryan Sims', device: 'CryoFuture Signal' },
+      ];
+      let disc = {};
+      const mod = n % 8;
+      if (mod === 1) {
+        const d = { fields: { 'Specimen Type': { expected: 'Embryos', actual: 'Oocyte' } } };
+        disc = { flagType: 'Specimen type mismatch', discrepancyDetail: d, resolvedDiscrepancy: { type: 'Specimen type mismatch', detail: d, note: 'Confirmed with clinic: manifest typo; carrier is correct (Embryos). Record corrected.', files: [], transportBack: false, by: 'Ryan Sims', at: resAt } };
+      } else if (mod === 4) {
+        const d = { fields: {}, damaged: true };
+        disc = { flagType: 'Damaged cane', discrepancyDetail: d, resolvedDiscrepancy: { type: 'Damaged cane', detail: d, note: 'Damage photographed; clinic requested return for inspection.', files: [], transportBack: true, by: 'Ryan Sims', at: resAt } };
+      } else if (mod === 6) {
+        disc = { manual: true, resolvedDiscrepancy: { type: 'Manually added, not on manifest', detail: null, note: 'Extra cane verified against clinic records and added to transfer.', files: [], transportBack: false, by: 'Ryan Sims', at: resAt } };
+      }
+      const storedEv = { type: 'stored', label: 'Stored', at: storeAt, by: 'Ryan Sims', device: 'CryoFuture Signal', loc };
+      return {
+        ...r, ...disc, flagged: false,
+        stage: 'placed', status: 'assigned', loc, verifiedAt: t, placedAt: storeAt,
+        idPhotos: [{ name: 'cane-front.jpg' }, { name: 'cane-cap.jpg' }],
+        shipper: r.shipper || currentShipper,
+        events: [...(r.events || []), ...idEvents, ...(disc.resolvedDiscrepancy ? [{ type: 'resolved', label: 'Discrepancy resolved', at: resAt, by: 'Ryan Sims' }] : []), storedEv],
+      };
+    }));
+    setApplied(true);
+    setStatus('completed');
+    setIntakeComplete(true);
+    setSignedAttestation({ name: 'Dr. Lauren Pike', title: 'Lab Director', at: Date.now() });
+    setTab('placed');
+  };
+
   const allRows = useMemo(() => [...rows, ...completed], [rows, completed]);
   const openRowIndex = openRowId ? allRows.findIndex(r => r.id === openRowId) : -1;
   const openRow = openRowIndex >= 0 ? allRows[openRowIndex] : null;
@@ -4398,11 +4444,21 @@ function App() {
               <h1>Bulk Intake<span className="ticket-id mono">TKT-2026-04-27-001</span></h1>
             </div>
             <div className="intake-progress">
-              <strong>Shipper {currentShipper} of {SHIPPERS.length}</strong>
-              <span className="ip-sep">·</span>
-              {curIdentified} of {curShipperCanes} canes identified
-              <span className="ip-sep">·</span>
-              {placedDoneCount} of {liveRows.length} stored
+              {intakeComplete ? (
+                <>
+                  <strong>{placedDoneCount} of {liveRows.length} canes stored</strong>
+                  <span className="ip-sep">·</span>
+                  <span style={{color:'#4ade80',fontWeight:600}}>Intake complete</span>
+                </>
+              ) : (
+                <>
+                  <strong>Shipper {currentShipper} of {SHIPPERS.length}</strong>
+                  <span className="ip-sep">·</span>
+                  {curIdentified} of {curShipperCanes} canes identified
+                  <span className="ip-sep">·</span>
+                  {placedDoneCount} of {liveRows.length} stored
+                </>
+              )}
             </div>
           </div>
           <div className="page-header-r">
@@ -4411,6 +4467,7 @@ function App() {
               <button className="demo-tool-btn" onClick={() => { reset(); }} title="Reset prototype state">Reset</button>
               <button className="demo-tool-btn" onClick={demoSkipSeal} title="Skip the seal + canister photo step for the current shipper and jump to the ID Canes table">Skip seal photos</button>
               <button className="demo-tool-btn" onClick={demoLoadDiscrepancies} title="Promote a batch of canes to Ready to Store with assorted discrepancy types (field mismatch, multi-field, damaged, damaged + field, manually added)">Load discrepancies</button>
+              <button className="demo-tool-btn" onClick={demoCompleted} title="Jump to the finalized, signed end state: all canes stored, discrepancies resolved, attestation signed, and the record/report PDF exports visible">Show completed</button>
               {!intakeComplete && (
                 <>
                 <button className="demo-tool-btn" onClick={demoAllStored} title="Jump to the final state with every cane Stored">All stored</button>
@@ -4439,15 +4496,7 @@ function App() {
                 </select>
               </div>
               {intakeComplete ? (
-                <span style={{display:'inline-flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-                  <span className="badge completed" style={{height:34,padding:'0 14px',fontSize:12}}><Icon.Check size={11}/>Intake Complete</span>
-                  {signedAttestation && (
-                    <span style={{fontSize:11.5,color:'#9ca3af'}}>
-                      Attested by <strong style={{color:'#e5e7eb'}}>{signedAttestation.name}</strong>, {signedAttestation.title} · {fmtEventTime(signedAttestation.at)}
-                      <button onClick={() => setAttestOpen(true)} style={{marginLeft:8,background:'none',border:'none',color:'var(--cryo-cyan)',cursor:'pointer',fontSize:11.5,fontFamily:'inherit',padding:0,textDecoration:'underline'}}>View</button>
-                    </span>
-                  )}
-                </span>
+                <span className="badge completed" style={{height:34,padding:'0 14px',fontSize:12}}><Icon.Check size={11}/>Intake Complete</span>
               ) : (
                 <button
                   className="btn-teal"
@@ -4462,6 +4511,26 @@ function App() {
             </div>
           </div>
         </div>
+
+        {intakeComplete && (
+          <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap',padding:'12px 16px',marginBottom:16,borderRadius:10,border:'1px solid rgba(34,197,94,0.25)',background:'rgba(34,197,94,0.04)'}}>
+            <span style={{display:'inline-flex',alignItems:'center',gap:7,color:'#4ade80',fontWeight:600,fontSize:13}}><Icon.Check size={13}/>Intake finalized &amp; locked</span>
+            {signedAttestation && (
+              <span style={{fontSize:12,color:'#9ca3af'}}>
+                Attested by <strong style={{color:'#e5e7eb'}}>{signedAttestation.name}</strong>, {signedAttestation.title} · {fmtEventTime(signedAttestation.at)}
+                <button onClick={() => setAttestOpen(true)} style={{marginLeft:8,background:'none',border:'none',color:'var(--cryo-cyan)',cursor:'pointer',fontSize:12,fontFamily:'inherit',padding:0,textDecoration:'underline'}}>View attestation</button>
+              </span>
+            )}
+            <span style={{marginLeft:'auto',display:'inline-flex',gap:8,flexWrap:'wrap'}}>
+              <button className="btn-outline" style={{height:34,fontSize:12}} onClick={() => showToast('Intake record PDF — export is mocked in this prototype')} title="Download the full chain-of-custody intake record (all canes, RFIDs, final locations, ID evidence, and activity trail)">
+                <span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon.Download/>Intake record (PDF)</span>
+              </button>
+              <button className="btn-outline" style={{height:34,fontSize:12}} onClick={() => signedAttestation ? setAttestOpen(true) : showToast('Sign the attestation first')} title="Download the discrepancy reconciliation report with the signed client attestation">
+                <span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon.Download/>Discrepancy report + attestation (PDF)</span>
+              </button>
+            </span>
+          </div>
+        )}
 
         <Stepper status={status}/>
 
@@ -4635,6 +4704,7 @@ function App() {
             rows={rows}
             ticket={TICKET}
             signed={signedAttestation}
+            onExport={() => showToast('Discrepancy report + attestation PDF — export is mocked in this prototype')}
             onClose={() => setAttestOpen(false)}
             onSign={(sig) => {
               setSignedAttestation(sig);

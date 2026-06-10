@@ -1,4 +1,4 @@
-<!doctype html>
+git<!doctype html>
 <html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=1440"/>
 <title>CryoFuture Atlanta — Bulk Intake Worksheet</title>
 <style>
@@ -362,22 +362,22 @@ html, body {
     text-transform: uppercase; letter-spacing: 0.1em; }
 
   .info-grid {
-    display: grid; grid-template-columns: repeat(5, 1fr); gap: 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 0;
     border: 1px solid #1a1d24;
     border-radius: 8px; overflow: hidden;
     background: #0f1117;
   }
   .info-row {
     background: transparent;
-    padding: 8px 13px;
-    display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+    padding: 6px 12px;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
     font-size: 13px;
     border-right: 1px solid #1a1d24;
     min-width: 0;
   }
   .info-row:last-child { border-right: none; }
-  .info-row .label { color: #6b7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
-  .info-row .value { color: #fff; font-weight: 500; font-size: 13px; line-height: 1.25; }
+  .info-row .label { color: #6b7280; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; }
+  .info-row .value { color: #fff; font-weight: 500; font-size: 12.5px; line-height: 1.2; }
   .info-row .value.mono { font-family: var(--font-mono); font-size: 12px; }
   .info-row .value .pill {
     display: inline-flex; align-items: center; gap: 6px;
@@ -1626,10 +1626,10 @@ function checkOccupancy(loc) {
 
 /* -------------------- Discrepancy View (full table view) -------------------- */
 function DiscrepancyView({ rows, onClose, onOpenCane }) {
-  const flagged = rows.filter(r => r.flagged && !r.removed);
-  const manualAdds = rows.filter(r => r.manual && !r.removed && !r.flagged && !r.resolvedDiscrepancy);
-  const removed = rows.filter(r => r.removed);
-  const resolved = rows.filter(r => r.resolvedDiscrepancy && !r.removed && !r.flagged);
+  const flagged = rows.filter(r => r.flagged && !r.resolvedDiscrepancy);
+  const manualAdds = rows.filter(r => r.manual && !r.flagged && !r.missing && !r.resolvedDiscrepancy);
+  const missing = rows.filter(r => r.missing && !r.resolvedDiscrepancy);
+  const resolved = rows.filter(r => r.resolvedDiscrepancy);
   const tableRows = [];
 
   // Flagged discrepancies (field-level)
@@ -1664,7 +1664,7 @@ function DiscrepancyView({ rows, onClose, onOpenCane }) {
     tableRows.push({
       type: 'resolved',
       caneId: r.id, rfid: r.rfid, patient: r.patient, mrn: r.mrn, shipper: r.shipper,
-      stage: r.stage, flagType: (rd.type || 'Discrepancy') + ' — Resolved' + (rd.transportBack ? ' · transport back' : ''),
+      stage: r.stage, flagType: (rd.type || 'Discrepancy') + (rd.returned ? ' — Sent back to clinic' : ' — Resolved') + (rd.transportBack && !rd.returned ? ' · transport back' : ''),
       field: '\u2014', expected: '\u2014', actual: '\u2014',
       note: `Resolved by ${rd.by || 'operator'}: ${rd.note || ''}${rd.files && rd.files.length ? ` · ${rd.files.length} file${rd.files.length === 1 ? '' : 's'} attached` : ''}`,
       followUps: r.followUps || [], files: rd.files || [], transportBack: !!rd.transportBack, actionBy: rd.by || '', actionAt: rd.at || null,
@@ -1683,16 +1683,15 @@ function DiscrepancyView({ rows, onClose, onOpenCane }) {
     });
   });
 
-  // Removed / missing canes
-  removed.forEach(r => {
-    const missing = r.stage === 'identification';
+  // Missing canes (open discrepancy — clinic must respond)
+  missing.forEach(r => {
     tableRows.push({
-      type: 'removed',
+      type: 'missing',
       caneId: r.id, rfid: r.rfid, patient: r.patient, mrn: r.mrn, shipper: r.shipper,
-      stage: r.stage, flagType: missing ? 'Missing from shipment' : 'Removed from list',
-      field: '\u2014', expected: 'On manifest', actual: missing ? 'Not in shipment' : 'Removed by operator',
-      note: missing ? 'Cane was on the manifest but not found in the shipment.' : (r.removedReason ? `${r.removedReason}${r.removedDoc ? ' — ' + r.removedDoc : ''}` : (r.removedBy ? `Removed by ${r.removedBy}` : 'Removed by operator')),
-      followUps: r.followUps || [], files: [], transportBack: false, actionBy: r.removedFlagBy || r.removedBy || '', actionAt: r.removedFlagAt || r.removedAt || null,
+      stage: r.stage, flagType: 'Missing from shipment',
+      field: '\u2014', expected: 'On manifest', actual: 'Not in shipment',
+      note: 'Cane was on the manifest but not found in the shipment.',
+      followUps: r.followUps || [], files: [], transportBack: false, actionBy: '', actionAt: null,
     });
   });
 
@@ -1735,12 +1734,11 @@ function DiscrepancyView({ rows, onClose, onOpenCane }) {
           </h2>
           <div style={{fontSize:13,color:'#9ca3af',marginTop:3}}>
             {(() => {
-              const distinct = new Set([...flagged, ...manualAdds, ...removed, ...resolved].map(r => r.id)).size;
-              const open = flagged.length + manualAdds.length;
+              const distinct = new Set([...flagged, ...manualAdds, ...missing, ...resolved].map(r => r.id)).size;
+              const open = flagged.length + manualAdds.length + missing.length;
               const parts = [];
               if (open) parts.push(`${open} open`);
               if (resolved.length) parts.push(`${resolved.length} resolved`);
-              if (removed.length) parts.push(`${removed.length} removed`);
               return `${distinct} cane${distinct === 1 ? '' : 's'} tracked${parts.length ? ' — ' + parts.join(', ') : ''}`;
             })()}
           </div>
@@ -1783,7 +1781,7 @@ function DiscrepancyView({ rows, onClose, onOpenCane }) {
                     </td>
                     <td>{
                       r.type === 'manual' ? <span style={{padding:'2px 8px',borderRadius:3,background:'rgba(96,165,250,0.15)',color:'#60a5fa',fontSize:11,fontWeight:600}}>Added</span>
-                      : r.type === 'removed' ? <span style={{padding:'2px 8px',borderRadius:3,background:'rgba(156,163,175,0.15)',color:'#9ca3af',fontSize:11,fontWeight:600}}>Missing</span>
+                      : r.type === 'missing' ? <span style={{padding:'2px 8px',borderRadius:3,background:'rgba(156,163,175,0.15)',color:'#9ca3af',fontSize:11,fontWeight:600}}>Missing</span>
                       : r.type === 'resolved' ? <span style={{padding:'2px 8px',borderRadius:3,background:'rgba(34,197,94,0.15)',color:'#4ade80',fontSize:11,fontWeight:600}}>Resolved</span>
                       : <span style={{padding:'2px 8px',borderRadius:3,background:'rgba(249,128,128,0.15)',color:'#f98080',fontSize:11,fontWeight:600}}>Flag</span>
                     }</td>
@@ -1813,7 +1811,7 @@ function CaneDrawer({
   onClose, onPrev, onNext,
   onSetLocation, onSaveFlag, onResolveFlag, onAddFlag, onRemoveFlag,
   onToggleManual, onRemoveRow, onConfirmIdentify,
-  onRequestResolve, onRequestRemove, onRequestFollowUp, fromDiscrepancy,
+  onRequestResolve, onRequestRemove, onRequestFollowUp, onRequestSendBack, fromDiscrepancy,
 }) {
   const drawerRef = dUseRef(null);
   const photoRef = dUseRef(null);
@@ -1916,7 +1914,7 @@ function CaneDrawer({
   }, [printed]);
 
   // Stage flags
-  const isIdent = row.stage === 'identification';
+  const isIdent = row.stage === 'identification' && !row.removed;
   const isAssignStage = row.stage === 'verified';
   const isPlaced = row.stage === 'placed';
 
@@ -1934,11 +1932,12 @@ function CaneDrawer({
     { key: 'Freeze Date',      expected: row.freezeDate || '\u2014', mono: true },
   ];
 
-  // Confirm gate (identification only): every populated field must be verified or flagged
+  // Confirm gate (identification only): at least one field must be verified; flagging is flexible
   const populatedKeys = confirmFields.filter(f => f.expected && f.expected !== '\u2014').map(f => f.key);
-  const untriagedCount = isIdent ? populatedKeys.filter(k => !fieldStatus[k]).length : 0;
-  const allTriaged = untriagedCount === 0;
-  const canConfirm = photos.length >= 1 && printed && tagAssociated && discValid && allTriaged;
+  const verifiedCount = isIdent ? populatedKeys.filter(k => fieldStatus[k] === 'verified').length : 0;
+  const triagedCount = isIdent ? populatedKeys.filter(k => fieldStatus[k]).length : 0;
+  const minVerified = !isIdent || verifiedCount >= 1;
+  const canConfirm = photos.length >= 1 && printed && tagAssociated && discValid && minVerified;
 
   const StatusBadge = () => {
     if (row.flagged) return <span className="badge flagged"><span className="dotty"/>Flagged</span>;
@@ -1990,9 +1989,9 @@ function CaneDrawer({
           <section className="dr-section">
             <div className="dr-section-label" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
               <span>Confirm against the physical cane</span>
-              {isIdent && (untriagedCount > 0
-                ? <span style={{color:'#fbbf24',fontWeight:600,fontSize:10.5,textTransform:'none',letterSpacing:0}}>{untriagedCount} field{untriagedCount===1?'':'s'} left to confirm</span>
-                : <span style={{color:'#4ade80',fontWeight:600,fontSize:10.5,textTransform:'none',letterSpacing:0}}>All fields confirmed</span>)}
+              {isIdent && (verifiedCount === 0
+                ? <span style={{color:'#fbbf24',fontWeight:600,fontSize:10.5,textTransform:'none',letterSpacing:0}}>Verify at least one field</span>
+                : <span style={{color:'#4ade80',fontWeight:600,fontSize:10.5,textTransform:'none',letterSpacing:0}}>{verifiedCount} verified{triagedCount > verifiedCount ? `, ${triagedCount - verifiedCount} flagged` : ''}</span>)}
             </div>
             <div className="dr-readonly-grid">
               {confirmFields.map(f => {
@@ -2096,9 +2095,11 @@ function CaneDrawer({
           {/* ============ DISCREPANCY — flag/manual, with resolve + remove ============ */}
           {(() => {
             const isManualOpen = row.manual && !row.resolvedDiscrepancy;
-            const isOpenDisc = row.flagged || isManualOpen;
-            const flagType = row.flagType || (row.manual ? 'Manually added, not on manifest' : 'Flagged');
+            const isMissingOpen = row.missing && !row.resolvedDiscrepancy;
+            const isOpenDisc = row.flagged || isManualOpen || isMissingOpen;
+            const flagType = row.flagType || (row.missing ? 'Missing from shipment' : row.manual ? 'Manually added, not on manifest' : 'Flagged');
             if (!isOpenDisc && !row.resolvedDiscrepancy) return null;
+            const removeType = row.flagged ? 'flag' : row.missing ? 'missing' : 'manual';
             return (
               <section className="dr-section">
                 <div className="dr-section-label">Discrepancy</div>
@@ -2106,7 +2107,8 @@ function CaneDrawer({
                   <div style={{padding:10,background:'rgba(249,128,128,0.05)',border:'1px solid rgba(249,128,128,0.25)',borderRadius:6}}>
                     <span className="badge flagged" style={{padding:'5px 10px',display:'inline-flex',alignItems:'center',gap:4}}><Icon.Warn/>{flagType}</span>
                     {row.flagNote && <div style={{fontSize:11.5,color:'#9ca3af',marginTop:8,lineHeight:1.5}}>{row.flagNote}</div>}
-                    {row.manual && !row.flagged && <div style={{fontSize:11.5,color:'#9ca3af',marginTop:8,lineHeight:1.5}}>Cane was not on the original manifest and was added by the operator.</div>}
+                    {isMissingOpen && <div style={{fontSize:11.5,color:'#9ca3af',marginTop:8,lineHeight:1.5}}>This cane was on the manifest but was not found in the shipment. The clinic must respond before intake can be completed.</div>}
+                    {row.manual && !row.flagged && !row.missing && <div style={{fontSize:11.5,color:'#9ca3af',marginTop:8,lineHeight:1.5}}>Cane was not on the original manifest and was added by the operator.</div>}
                     {row.followUps && row.followUps.length > 0 && (
                       <div style={{marginTop:10,borderTop:'1px solid rgba(249,128,128,0.18)',paddingTop:8}}>
                         <div style={{fontSize:10,color:'#9ca3af',textTransform:'uppercase',letterSpacing:'0.05em',fontWeight:600,marginBottom:6}}>Follow-ups</div>
@@ -2118,31 +2120,44 @@ function CaneDrawer({
                         ))}
                       </div>
                     )}
-                    <div style={{display:'flex',gap:8,marginTop:12,flexWrap:'wrap'}}>
+                    <div style={{display:'flex',gap:8,marginTop:12}}>
                       <button
                         className="btn-outline"
-                        style={{padding:'7px 14px',fontSize:12.5}}
+                        style={{flex:1,padding:'7px 14px',fontSize:12.5}}
                         onClick={() => onRequestFollowUp({ caneId: row.id, rfid: row.rfid, flagType })}>
                         Add follow-up
                       </button>
                       <button
                         className="btn-teal"
-                        style={{padding:'7px 14px',fontSize:12.5}}
+                        style={{flex:1,padding:'7px 14px',fontSize:12.5}}
                         onClick={() => onRequestResolve({ caneId: row.id, rfid: row.rfid, flagType })}>
-                        <span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon.Check size={11}/>Resolve</span>
+                        <span style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:6}}><Icon.Check size={11}/>Resolve</span>
                       </button>
+                    </div>
+                    <div style={{display:'flex',gap:8,marginTop:8}}>
+                      {!row.missing && (
+                        <button
+                          className="btn-outline"
+                          style={{flex:1,padding:'7px 14px',fontSize:12.5,borderColor:'rgba(96,165,250,0.4)',color:'#93c5fd'}}
+                          onClick={() => onRequestSendBack({ caneId: row.id, rfid: row.rfid, flagType })}
+                          title="Flag this cane to be shipped back to the clinic. This is a disposition, not a resolution.">
+                          Send back to clinic
+                        </button>
+                      )}
                       <button
                         className="btn-outline"
-                        style={{padding:'7px 14px',fontSize:12.5,borderColor:'rgba(249,128,128,0.4)',color:'#f98080'}}
-                        onClick={() => onRequestRemove({ type: row.flagged ? 'flag' : 'manual', caneId: row.id, rfid: row.rfid })}>
+                        style={{flex:1,padding:'7px 14px',fontSize:12.5,borderColor:'rgba(249,128,128,0.4)',color:'#f98080'}}
+                        onClick={() => onRequestRemove({ type: removeType, caneId: row.id, rfid: row.rfid })}>
                         Remove as Discrepancy
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div style={{padding:10,background:'rgba(34,197,94,0.05)',border:'1px solid rgba(34,197,94,0.25)',borderRadius:6}}>
-                    <span style={{color:'#4ade80',display:'inline-flex',alignItems:'center',gap:6,fontSize:12.5,fontWeight:600}}><Icon.Check size={11}/>Resolved — {row.resolvedDiscrepancy.type}</span>
-                    {row.resolvedDiscrepancy.transportBack && <div style={{marginTop:8,display:'inline-flex',alignItems:'center',gap:6,padding:'3px 9px',borderRadius:4,background:'rgba(96,165,250,0.12)',border:'1px solid rgba(96,165,250,0.3)',color:'#93c5fd',fontSize:11,fontWeight:600}}>Transport back to clinic requested</div>}
+                  <div style={{padding:10,background: row.resolvedDiscrepancy.returned ? 'rgba(96,165,250,0.06)' : 'rgba(34,197,94,0.05)',border:'1px solid '+(row.resolvedDiscrepancy.returned ? 'rgba(96,165,250,0.3)' : 'rgba(34,197,94,0.25)'),borderRadius:6}}>
+                    {row.resolvedDiscrepancy.returned
+                      ? <span style={{color:'#93c5fd',display:'inline-flex',alignItems:'center',gap:6,fontSize:12.5,fontWeight:600}}>Sent back to clinic — {row.resolvedDiscrepancy.type}</span>
+                      : <span style={{color:'#4ade80',display:'inline-flex',alignItems:'center',gap:6,fontSize:12.5,fontWeight:600}}><Icon.Check size={11}/>Resolved — {row.resolvedDiscrepancy.type}</span>}
+                    {row.resolvedDiscrepancy.transportBack && <div style={{marginTop:8,display:'inline-flex',alignItems:'center',gap:6,padding:'3px 9px',borderRadius:4,background:'rgba(96,165,250,0.12)',border:'1px solid rgba(96,165,250,0.3)',color:'#93c5fd',fontSize:11,fontWeight:600}}>Return shipment requested · next scheduled cycle</div>}
                     {row.resolvedDiscrepancy.note && <div style={{fontSize:11.5,color:'#9ca3af',marginTop:8,lineHeight:1.5}}>{row.resolvedDiscrepancy.note}</div>}
                     {row.resolvedDiscrepancy.files && row.resolvedDiscrepancy.files.length > 0 && <div style={{fontSize:11,color:'#6b7280',marginTop:6}}>{row.resolvedDiscrepancy.files.length} file{row.resolvedDiscrepancy.files.length===1?'':'s'} attached</div>}
                     {row.followUps && row.followUps.length > 0 && (
@@ -2354,12 +2369,6 @@ function CaneDrawer({
                   </select>
                 </div>
               </div>
-
-              <div className={`occupancy-pill ${occupancy || 'idle'}`}>
-                {occupancy === 'available' && <><span className="oc-dot"/>Available · slot is free</>}
-                {occupancy === 'occupied' && <><span className="oc-dot"/>Occupied · choose a different slot</>}
-                {!occupancy && <><span className="oc-dot"/>Occupancy check · fill all six fields to verify</>}
-              </div>
               </>
               )}
             </section>
@@ -2372,7 +2381,7 @@ function CaneDrawer({
           {/* Primary CTA */}
           {isIdent && (() => {
             const need = [
-              untriagedCount > 0 ? `verify or flag ${untriagedCount} remaining field${untriagedCount===1?'':'s'}` : null,
+              verifiedCount < 1 ? 'verify at least one field' : null,
               !printed ? 'print the RFID tag' : null,
               (printed && !tagAssociated) ? 'scan the tag on the handheld to associate it' : null,
               photos.length < 1 ? 'take at least one photo or video' : null,
@@ -2393,10 +2402,10 @@ function CaneDrawer({
           {isAssignStage && !fromDiscrepancy && (
             <button
               className="btn-teal"
-              disabled={!allFilled || occupancy === 'occupied'}
+              disabled={!allFilled}
               onClick={() => onSetLocation(row.id, loc)}
-              title={occupancy === 'occupied' ? 'That slot is already occupied — choose a different location' : (!allFilled ? 'Fill in all location fields (vault, tank, pie, canister, slot) to save' : 'Save this location')}
-              style={{padding:'9px 16px',fontSize:13,fontWeight:600,opacity:(!allFilled || occupancy === 'occupied')?0.5:1,cursor:(!allFilled || occupancy === 'occupied')?'not-allowed':'pointer'}}>
+              title={!allFilled ? 'Fill in all location fields (vault, tank, pie, canister, slot) to save' : 'Save this location'}
+              style={{padding:'9px 16px',fontSize:13,fontWeight:600,opacity:allFilled?1:0.5,cursor:allFilled?'pointer':'not-allowed'}}>
               Save Location
             </button>
           )}
@@ -2785,7 +2794,8 @@ function eventLine(ev) {
 }
 
 /* -------------------- Ticket Info -------------------- */
-function TicketInfo({ ticket }) {
+function TicketInfo({ ticket, staff = [], specimenHandler, recordVerifier, onSpecimenHandler, onRecordVerifier }) {
+  const selStyle = { background:'#0f1117', border:'1px solid #2a2d36', color:'#fff', borderRadius:5, padding:'2px 6px', fontSize:12.5, fontFamily:'var(--font-sans)', cursor:'pointer', maxWidth:'100%' };
   return (
     <div className="card">
       <div className="card-head"><span className="icon-box"><Icon.Truck/></span><h2>Ticket Info</h2></div>
@@ -2795,6 +2805,16 @@ function TicketInfo({ ticket }) {
         <div className="info-row"><span className="label">Facility</span><span className="value">{ticket.facility}</span></div>
         <div className="info-row"><span className="label">Number of canes</span><span className="value">{ticket.canes}</span></div>
         <div className="info-row"><span className="label">Created date</span><span className="value">{ticket.created}</span></div>
+        <div className="info-row"><span className="label">Specimen handler</span><span className="value">
+          <select value={specimenHandler} onChange={(e) => onSpecimenHandler(e.target.value)} style={selStyle}>
+            {staff.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </span></div>
+        <div className="info-row"><span className="label">Record verifier</span><span className="value">
+          <select value={recordVerifier} onChange={(e) => onRecordVerifier(e.target.value)} style={selStyle}>
+            {staff.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </span></div>
         <div className="info-row full">
           <span className="label">Import</span>
           <span className="value" style={{display:'flex', alignItems:'center', gap:10}}>
@@ -2871,6 +2891,8 @@ function genCanes() {
       capLabel: ['Blue','Red','Green','Amber','Purple','Pink'][i % 6],
       tabLabel: `${['A','B','C','D','E','F'][i % 6]}-${String(101 + i)}`,
       deviceCount: [4,5,6,3,8,4][i % 6],
+      specimenHandler: ['Dr. A. Reyes','Dr. M. Cho','Dr. L. Pike','Dr. S. Okoro','Dr. J. Vance','Dr. K. Smith'][i % 6],
+      recordVerified: 'Yes',
       stage: isVerified ? 'verified' : 'identification',
       verifiedAt: isVerified ? baseTs + i * 90 * 1000 : undefined,
       events: isVerified ? [
@@ -3744,8 +3766,8 @@ function AttestationModal({ rows, ticket, onClose, onSign, signed, onExport }) {
         state = missing ? 'Missing from shipment' : 'Removed';
         response = r.removedReason ? `Removed as discrepancy — ${r.removedReason}${r.removedDoc ? `: ${r.removedDoc}` : ''}` : 'Removed from report';
       } else if (rd) {
-        state = 'Resolved';
-        response = rd.note || 'Resolved';
+        state = rd.returned ? 'Sent back' : 'Resolved';
+        response = (rd.returned ? 'Returning to clinic. ' : '') + (rd.note || (rd.returned ? 'Flagged for return shipment.' : 'Resolved'));
         transportBack = !!rd.transportBack;
       } else {
         state = 'OPEN';
@@ -3759,7 +3781,7 @@ function AttestationModal({ rows, ticket, onClose, onSign, signed, onExport }) {
   const openCount = items.filter(i => i.state === 'OPEN').length;
   const transportCount = items.filter(i => i.transportBack).length;
   const canSign = name.trim() && title.trim() && agreed && openCount === 0;
-  const stateColor = (s) => s === 'Resolved' ? '#4ade80' : s === 'OPEN' ? '#f98080' : '#9ca3af';
+  const stateColor = (s) => s === 'Resolved' ? '#4ade80' : s === 'OPEN' ? '#f98080' : s === 'Sent back' ? '#93c5fd' : '#9ca3af';
 
   return (
     <ModalShell
@@ -3909,7 +3931,7 @@ function App() {
   const [showAfterState, setShowAfterState] = useState(false);
   const [openRowId, setOpenRowId] = useState(null);
   const [discrepancySheetOpen, setDiscrepancySheetOpen] = useState(false);
-  const flaggedCount = rows.filter(r => !r.removed && (r.flagged || (r.manual && !r.resolvedDiscrepancy))).length;
+  const flaggedCount = rows.filter(r => !r.resolvedDiscrepancy && (r.flagged || r.manual || r.missing)).length;
   const [currentShipper, setCurrentShipper] = useState(1);
   // sealVerified: { [shipperId]: { photos: [{name,url}], verifiedAt: ts, verifiedBy: email } }
   const [sealVerified, setSealVerified] = useState({});
@@ -3934,9 +3956,8 @@ function App() {
   const [resolveTarget, setResolveTarget] = useState(null);
   const [resolveNote, setResolveNote] = useState('');
   const [resolveFiles, setResolveFiles] = useState([]);
-  const [resolveTransportBack, setResolveTransportBack] = useState(false);
   const resolveFileRef = useRef(null);
-  const closeResolve = () => { setResolveTarget(null); setResolveNote(''); setResolveFiles([]); setResolveTransportBack(false); };
+  const closeResolve = () => { setResolveTarget(null); setResolveNote(''); setResolveFiles([]); };
   const [removeTarget, setRemoveTarget] = useState(null);
   const [removeReason, setRemoveReason] = useState('');
   const [removeDoc, setRemoveDoc] = useState('');
@@ -3946,6 +3967,11 @@ function App() {
   const [followFiles, setFollowFiles] = useState([]);
   const followFileRef = useRef(null);
   const closeFollow = () => { setFollowTarget(null); setFollowNote(''); setFollowFiles([]); };
+  const [sendBackTarget, setSendBackTarget] = useState(null);
+  const [sendBackNote, setSendBackNote] = useState('');
+  const [sendBackFiles, setSendBackFiles] = useState([]);
+  const sendBackFileRef = useRef(null);
+  const closeSendBack = () => { setSendBackTarget(null); setSendBackNote(''); setSendBackFiles([]); };
   const handleSuggest = () => setSuggestOpen(true);
   const applySuggestion = (anchor) => {
     setAnchor(anchor);
@@ -4012,6 +4038,9 @@ function App() {
   // Actor + device used for the cane activity trail (mocked in this prototype).
   const [assignee, setAssignee] = useState('John Smith (Me)');
   const OPERATOR = assignee.replace(/\s*\(Me\)$/, '');
+  const STAFF = ['John Smith', 'Sarah Chen', 'Dev Patel', 'James Okoro'];
+  const [specimenHandler, setSpecimenHandler] = useState('John Smith');
+  const [recordVerifier, setRecordVerifier] = useState('John Smith');
   const DEVICE = 'CryoFuture Signal';
 
   // Vault placement scan: moves a location-confirmed, tag-bound cane to Stored.
@@ -4091,8 +4120,14 @@ function App() {
     setRows(rows.map(r => r.id === rowId ? { ...r, manual: !r.manual } : r));
   };
   const handleRemoveRow = (rowId) => {
-    // Soft-delete: mark as removed for audit trail and client reporting.
-    setRows(prev => prev.map(r => r.id === rowId ? { ...r, removed: true, removedAt: Date.now(), removedBy: OPERATOR } : r));
+    // "Flag as missing": cane was on the manifest but not in the shipment.
+    // Tracked as an OPEN discrepancy the clinic must respond to, and removed from the
+    // placement worklist (it can't be stored).
+    const at = Date.now();
+    setRows(prev => prev.map(r => r.id === rowId ? {
+      ...r, removed: true, missing: true, flagType: 'Missing from shipment', removedAt: at, removedBy: OPERATOR,
+      events: [...(r.events || []), { type: 'located', label: 'Flagged missing from shipment', at, by: OPERATOR }],
+    } : r));
     setOpenRowId(null);
   };
 
@@ -4166,8 +4201,8 @@ function App() {
       const base = { ...r, stage: 'verified', verifiedAt: t, shipper: r.shipper || currentShipper, idPhotos: [{ name: 'cane-front.jpg' }, { name: 'cane-cap.jpg' }], events: [...(r.events || []), ...evs] };
       const resolve = (type, detail, note, tb) => ({
         ...base, flagged: false, flagType: type, discrepancyDetail: detail,
-        resolvedDiscrepancy: { type, detail, note, files: [], transportBack: !!tb, by: OPERATOR, at: resAt },
-        events: [...base.events, { type: 'resolved', label: 'Discrepancy resolved', at: resAt, by: OPERATOR }],
+        resolvedDiscrepancy: { type, detail, note, files: [], transportBack: !!tb, returned: !!tb, by: OPERATOR, at: resAt },
+        events: [...base.events, { type: tb ? 'located' : 'resolved', label: tb ? 'Sent back to clinic — return shipment requested' : 'Discrepancy resolved', at: resAt, by: OPERATOR }],
       });
       switch (n % 5) {
         case 1: return resolve('Specimen type mismatch', { fields: { 'Specimen Type': { expected: 'Embryos', actual: 'Oocyte' } } }, 'Confirmed with clinic: manifest entry was a typo, carrier is correct (Embryos). Record corrected.', false);
@@ -4204,7 +4239,7 @@ function App() {
         disc = { flagType: 'Specimen type mismatch', discrepancyDetail: d, resolvedDiscrepancy: { type: 'Specimen type mismatch', detail: d, note: 'Confirmed with clinic: manifest typo; carrier is correct (Embryos). Record corrected.', files: [], transportBack: false, by: 'Ryan Sims', at: resAt } };
       } else if (mod === 4) {
         const d = { fields: {}, damaged: true };
-        disc = { flagType: 'Damaged cane', discrepancyDetail: d, resolvedDiscrepancy: { type: 'Damaged cane', detail: d, note: 'Damage photographed; clinic requested return for inspection.', files: [], transportBack: true, by: 'Ryan Sims', at: resAt } };
+        disc = { flagType: 'Damaged cane', discrepancyDetail: d, resolvedDiscrepancy: { type: 'Damaged cane', detail: d, note: 'Damage photographed; clinic requested return for inspection.', files: [], transportBack: true, returned: true, by: 'Ryan Sims', at: resAt } };
       } else if (mod === 6) {
         disc = { manual: true, resolvedDiscrepancy: { type: 'Manually added, not on manifest', detail: null, note: 'Extra cane verified against clinic records and added to transfer.', files: [], transportBack: false, by: 'Ryan Sims', at: resAt } };
       }
@@ -4222,6 +4257,50 @@ function App() {
     setIntakeComplete(true);
     setSignedAttestation({ name: 'Dr. Lauren Pike', title: 'Lab Director', at: Date.now() });
     setTab('placed');
+  };
+
+  // Demo: set up a near-final state with exactly ONE open discrepancy left, all canes stored.
+  // Resolve that last one (from the Discrepancies view) to watch the attestation auto-open.
+  const demoResolveLast = () => {
+    const baseAt = Date.now() - 30 * 60 * 1000;
+    let slot = 10;
+    let n = 0;
+    setRows(prev => prev.map(r => {
+      if (r.removed) return r;
+      n += 1;
+      const t = baseAt + n * 40 * 1000;
+      const resAt = t + 5 * 60 * 1000;
+      const storeAt = t + 8 * 60 * 1000;
+      const loc = r.loc || { v: 'A', t: '04', l: '2', p: '1', cn: '09', s: String(slot++).padStart(2, '0') };
+      const idEvents = [
+        { type: 'identified', label: 'Identity confirmed against manifest', at: t, by: 'Ryan Sims', device: 'CryoFuture Signal' },
+        { type: 'rfid', label: 'RFID tag associated', at: t + 30000, by: 'Ryan Sims', device: 'CryoFuture Signal' },
+      ];
+      const storedEv = { type: 'stored', label: 'Stored', at: storeAt, by: 'Ryan Sims', device: 'CryoFuture Signal', loc };
+      const baseStored = {
+        ...r, flagged: false, manual: false, missing: false, removed: false,
+        stage: 'placed', status: 'assigned', loc, verifiedAt: t, placedAt: storeAt,
+        idPhotos: [{ name: 'cane-front.jpg' }, { name: 'cane-cap.jpg' }], shipper: r.shipper || currentShipper,
+      };
+      // The ONE remaining open discrepancy:
+      if (n === 2) {
+        const d = { fields: { 'Specimen Type': { expected: 'Embryos', actual: 'Oocyte' } } };
+        return { ...baseStored, flagged: true, flagType: 'Specimen type mismatch', flagNote: 'Expected Embryos, actual cane carrier reads Oocyte. Awaiting clinic response.', discrepancyDetail: d, events: [...(r.events || []), ...idEvents, storedEv] };
+      }
+      // A couple already resolved (for the summary):
+      if (n === 4) {
+        const d = { fields: { 'Date of Birth': { expected: r.dob, actual: '1990-01-01' } } };
+        return { ...baseStored, flagType: 'Identification discrepancy', discrepancyDetail: d, resolvedDiscrepancy: { type: 'Identification discrepancy', detail: d, note: 'Clinic confirmed identity by MRN.', files: [], transportBack: false, returned: false, by: 'Ryan Sims', at: resAt }, events: [...(r.events || []), ...idEvents, { type: 'resolved', label: 'Discrepancy resolved', at: resAt, by: 'Ryan Sims' }, storedEv] };
+      }
+      return { ...baseStored, events: [...(r.events || []), ...idEvents, storedEv] };
+    }));
+    setApplied(true);
+    setStatus('in_progress');
+    setIntakeComplete(false);
+    setSignedAttestation(null);
+    setTab('placed');
+    setDiscrepancySheetOpen(true);
+    showToast('One discrepancy left — open it and Resolve to see the clinic attestation auto-open');
   };
 
   const allRows = useMemo(() => [...rows, ...completed], [rows, completed]);
@@ -4255,9 +4334,9 @@ function App() {
   const liveRows = rows.filter(r => !r.removed);
   const placedDoneCount = liveRows.filter(r => r.stage === 'placed').length;
   const allPlaced = liveRows.length > 0 && placedDoneCount === liveRows.length;
-  const openFlags = rows.filter(r => !r.removed && (r.flagged || (r.manual && !r.resolvedDiscrepancy))).length;
+  const openFlags = rows.filter(r => !r.resolvedDiscrepancy && (r.flagged || r.manual || r.missing)).length;
   const canComplete = allPlaced && openFlags === 0;
-  const hasDiscrepancies = rows.some(r => r.flagged || r.resolvedDiscrepancy || r.removed || r.manual);
+  const hasDiscrepancies = rows.some(r => r.flagged || r.resolvedDiscrepancy || r.removed || r.manual || r.missing);
   const stageRows = tab === 'identification' ? idRows : tab === 'verified' ? verifiedRows : placedRows;
   const visibleCount = stageRows.length;
   const totalForTab = tab === 'identification' ? TICKET.canes : stageRows.length;
@@ -4353,16 +4432,29 @@ function App() {
       : `${name} identified — moved to Ready to Store`);
   };
 
+  // When the LAST open discrepancy is closed (resolved / removed / sent back),
+  // automatically surface the attestation for the clinic admin.
+  const maybeOpenAttestation = (excludeId) => {
+    const hasAny = rows.some(r => r.flagged || r.resolvedDiscrepancy || r.removed || r.manual || r.missing);
+    const openAfter = rows.filter(r => r.id !== excludeId && !r.resolvedDiscrepancy && (r.flagged || r.manual || r.missing)).length;
+    if (hasAny && openAfter === 0 && !signedAttestation) {
+      // Close the cane drawer and surface the discrepancy view, then pop the attestation
+      // over it so it appears right where the last discrepancy was resolved.
+      setTimeout(() => { setOpenRowId(null); setDiscrepancySheetOpen(true); setAttestOpen(true); }, 350);
+    }
+  };
+
   const removeDiscrepancy = (entry) => {
     setRows(prev => prev.map(r => {
       if (r.id !== entry.caneId) return r;
       const audit = { removedReason: entry.reason, removedDoc: entry.documentation, removedFlagBy: OPERATOR, removedFlagAt: Date.now() };
       if (entry.type === 'manual') return { ...r, manual: false, ...audit };
+      if (entry.type === 'missing') return { ...r, removed: false, missing: false, removedAt: undefined, removedBy: undefined, flagType: undefined, ...audit };
       if (entry.type === 'removed') return { ...r, removed: false, removedAt: undefined, removedBy: undefined, ...audit };
-      // flagged field discrepancy
       return { ...r, flagged: false, flagType: undefined, flagNote: undefined, discrepancyDetail: undefined, ...audit };
     }));
     showToast(entry.reason ? `Discrepancy removed — ${entry.reason}` : 'Discrepancy removed from the report');
+    if (entry.type === 'flag' || entry.type === 'manual' || entry.type === 'missing') maybeOpenAttestation(entry.caneId);
   };
 
   // Resolve a flagged discrepancy: keep it on the report as resolved, unblock completion.
@@ -4370,16 +4462,34 @@ function App() {
     const at = Date.now();
     setRows(prev => prev.map(r => {
       if (r.id !== entry.caneId) return r;
-      const evs = [{ type: 'resolved', label: 'Discrepancy resolved', at, by: OPERATOR }];
-      if (entry.transportBack) evs.push({ type: 'located', label: 'Transport back to clinic requested', at: at + 1, by: OPERATOR });
+      const ev = { type: 'resolved', label: 'Discrepancy resolved', at, by: OPERATOR };
       return {
         ...r,
         flagged: false,
-        resolvedDiscrepancy: { type: r.flagType || (r.manual ? 'Manually added, not on manifest' : 'Discrepancy'), detail: r.discrepancyDetail, note: entry.note, files: entry.files || [], transportBack: !!entry.transportBack, by: OPERATOR, at },
-        events: [...(r.events || []), ...evs],
+        resolvedDiscrepancy: { type: r.flagType || (r.manual ? 'Manually added, not on manifest' : 'Discrepancy'), detail: r.discrepancyDetail, note: entry.note, files: entry.files || [], transportBack: false, returned: false, by: OPERATOR, at },
+        events: [...(r.events || []), ev],
       };
     }));
-    showToast(entry.transportBack ? 'Resolved · transport back requested' : 'Discrepancy resolved');
+    showToast('Discrepancy resolved');
+    maybeOpenAttestation(entry.caneId);
+  };
+
+  // Send back to clinic: a disposition (not a resolution). Closes the open discrepancy
+  // and flags the cane for return shipment.
+  const sendBackDiscrepancy = (entry) => {
+    const at = Date.now();
+    setRows(prev => prev.map(r => {
+      if (r.id !== entry.caneId) return r;
+      const ev = { type: 'located', label: 'Sent back to clinic — return shipment requested', at, by: OPERATOR };
+      return {
+        ...r,
+        flagged: false,
+        resolvedDiscrepancy: { type: r.flagType || (r.manual ? 'Manually added, not on manifest' : 'Discrepancy'), detail: r.discrepancyDetail, note: entry.note, files: entry.files || [], transportBack: true, returned: true, by: OPERATOR, at },
+        events: [...(r.events || []), ev],
+      };
+    }));
+    showToast('Cane flagged for transport back to clinic');
+    maybeOpenAttestation(entry.caneId);
   };
 
   // Add a follow-up note to an open discrepancy WITHOUT resolving it.
@@ -4402,10 +4512,14 @@ function App() {
     addFollowUp({ caneId: followTarget.caneId, note: followNote.trim(), files: followFiles.map(f => f.name) });
     closeFollow();
   };
+  const confirmSendBackModal = () => {
+    sendBackDiscrepancy({ caneId: sendBackTarget.caneId, note: sendBackNote.trim(), files: sendBackFiles.map(f => f.name) });
+    closeSendBack();
+  };
 
   const confirmResolveModal = () => {
     if (!resolveNote.trim()) return;
-    resolveDiscrepancy({ caneId: resolveTarget.caneId, note: resolveNote.trim(), files: resolveFiles.map(f => f.name), transportBack: resolveTransportBack });
+    resolveDiscrepancy({ caneId: resolveTarget.caneId, note: resolveNote.trim(), files: resolveFiles.map(f => f.name) });
     closeResolve();
   };
   const confirmRemoveModal = () => {
@@ -4468,6 +4582,7 @@ function App() {
               <button className="demo-tool-btn" onClick={demoSkipSeal} title="Skip the seal + canister photo step for the current shipper and jump to the ID Canes table">Skip seal photos</button>
               <button className="demo-tool-btn" onClick={demoLoadDiscrepancies} title="Promote a batch of canes to Ready to Store with assorted discrepancy types (field mismatch, multi-field, damaged, damaged + field, manually added)">Load discrepancies</button>
               <button className="demo-tool-btn" onClick={demoCompleted} title="Jump to the finalized, signed end state: all canes stored, discrepancies resolved, attestation signed, and the record/report PDF exports visible">Show completed</button>
+              <button className="demo-tool-btn" onClick={demoResolveLast} title="Set up one remaining open discrepancy with everything else stored, then resolve it from the Discrepancies view to watch the clinic attestation auto-open">Resolve last → attest</button>
               {!intakeComplete && (
                 <>
                 <button className="demo-tool-btn" onClick={demoAllStored} title="Jump to the final state with every cane Stored">All stored</button>
@@ -4497,17 +4612,23 @@ function App() {
               </div>
               {intakeComplete ? (
                 <span className="badge completed" style={{height:34,padding:'0 14px',fontSize:12}}><Icon.Check size={11}/>Intake Complete</span>
-              ) : (
+              ) : (() => {
+                const needsAttestation = hasDiscrepancies && !signedAttestation;
+                const enabled = canComplete && !needsAttestation;
+                return (
                 <button
                   className="btn-teal"
-                  disabled={!canComplete}
-                  onClick={() => hasDiscrepancies ? setAttestOpen(true) : setShowCompleteModal(true)}
-                  title={canComplete
-                    ? 'Finalize chain-of-custody and discrepancy reports on the transport record'
-                    : "You can't complete intake until all canes are placed and discrepancies are resolved"}>
+                  disabled={!enabled}
+                  onClick={() => { if (hasDiscrepancies) { setIntakeComplete(true); setStatus('completed'); } else { setShowCompleteModal(true); } }}
+                  title={!canComplete
+                    ? "You can't complete intake until all canes are placed and discrepancies are resolved"
+                    : needsAttestation
+                    ? 'Waiting on the clinic attestation — the clinic admin must respond to each discrepancy and sign'
+                    : 'Finalize chain-of-custody and discrepancy reports on the transport record'}>
                   <span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon.Check size={11}/>Complete Intake</span>
                 </button>
-              )}
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -4534,7 +4655,14 @@ function App() {
 
         <Stepper status={status}/>
 
-        <TicketInfo ticket={TICKET}/>
+        <TicketInfo
+          ticket={TICKET}
+          staff={STAFF}
+          specimenHandler={specimenHandler}
+          recordVerifier={recordVerifier}
+          onSpecimenHandler={(v) => { setSpecimenHandler(v); showToast(`Specimen handler set to ${v}`); }}
+          onRecordVerifier={(v) => { setRecordVerifier(v); showToast(`Record verifier set to ${v}`); }}
+        />
 
         {/* Tabs — three-stage workflow */}
         <div className="tabs">
@@ -4699,23 +4827,6 @@ function App() {
           />
         )}
 
-        {attestOpen && (
-          <AttestationModal
-            rows={rows}
-            ticket={TICKET}
-            signed={signedAttestation}
-            onExport={() => showToast('Discrepancy report + attestation PDF — export is mocked in this prototype')}
-            onClose={() => setAttestOpen(false)}
-            onSign={(sig) => {
-              setSignedAttestation(sig);
-              setIntakeComplete(true);
-              setStatus('completed');
-              setAttestOpen(false);
-              showToast(`Attestation signed by ${sig.name}`);
-            }}
-          />
-        )}
-
         {showAddCane && (
           <AddCaneModal
             shipperId={currentShipper}
@@ -4749,6 +4860,21 @@ function App() {
           </div>
         )}
 
+        {attestOpen && (
+          <AttestationModal
+            rows={rows}
+            ticket={TICKET}
+            signed={signedAttestation}
+            onExport={() => showToast('Discrepancy report + attestation PDF — export is mocked in this prototype')}
+            onClose={() => setAttestOpen(false)}
+            onSign={(sig) => {
+              setSignedAttestation(sig);
+              setAttestOpen(false);
+              showToast(`Attestation signed by ${sig.name}. Intake can now be completed.`);
+            }}
+          />
+        )}
+
         {openRow && (
           <CaneDrawer
             row={openRow}
@@ -4767,6 +4893,7 @@ function App() {
             onRequestResolve={(t) => setResolveTarget(t)}
             onRequestRemove={(t) => setRemoveTarget(t)}
             onRequestFollowUp={(t) => setFollowTarget(t)}
+            onRequestSendBack={(t) => setSendBackTarget(t)}
             fromDiscrepancy={discrepancySheetOpen}
           />
         )}
@@ -4845,6 +4972,46 @@ function App() {
           </ModalShell>
         )}
 
+        {sendBackTarget && (
+          <ModalShell
+            title="Send back to clinic"
+            sub={`Flag cane RFID ${sendBackTarget.rfid && sendBackTarget.rfid !== '\u2014' ? sendBackTarget.rfid : '(no tag)'} (${sendBackTarget.flagType}) for return shipment. This is a disposition, not a resolution — the cane is being sent back, and fulfillment follows CryoFuture's next scheduled shipment cycle. It closes the open discrepancy so intake can proceed.`}
+            onClose={closeSendBack}>
+            <div style={{marginBottom:14}}>
+              <div style={{display:'block',fontSize:11,color:'#9ca3af',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.05em',fontWeight:600}}>Reason / notes <span style={{textTransform:'none',letterSpacing:0,color:'#6b7280',fontWeight:500}}>(optional)</span></div>
+              <textarea className="cryo-input" rows={3} value={sendBackNote} onChange={(e) => setSendBackNote(e.target.value)}
+                placeholder="Why is this cane going back (wrong specimen, damaged, not expected, etc.)? Recorded with your name and timestamp." style={{resize:'vertical'}}/>
+            </div>
+            <div style={{marginBottom:14}}>
+              <div style={{display:'block',fontSize:11,color:'#9ca3af',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.05em',fontWeight:600}}>Attach files <span style={{textTransform:'none',letterSpacing:0,color:'#6b7280',fontWeight:500}}>(optional)</span></div>
+              <input ref={sendBackFileRef} type="file" multiple style={{display:'none'}} onChange={(e) => {
+                const fs = Array.from(e.target.files || []);
+                if (fs.length) setSendBackFiles(prev => [...prev, ...fs.map(f => ({ name: f.name }))]);
+                e.target.value = '';
+              }}/>
+              <button className="btn-outline" style={{padding:'7px 13px',fontSize:12.5}} onClick={() => sendBackFileRef.current?.click()}>
+                <span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon.Download/>Attach files</span>
+              </button>
+              {sendBackFiles.length > 0 && (
+                <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:8}}>
+                  {sendBackFiles.map((f, i) => (
+                    <span key={i} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'3px 8px',background:'rgba(255,255,255,0.04)',border:'1px solid #2a2d36',borderRadius:4,fontSize:11.5,color:'#cbd5e1'}}>
+                      {f.name}
+                      <span style={{cursor:'pointer',color:'#6b7280'}} onClick={() => setSendBackFiles(prev => prev.filter((_, idx) => idx !== i))}><Icon.X/></span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
+              <button className="btn-outline" onClick={closeSendBack}>Cancel</button>
+              <button className="btn-teal" onClick={confirmSendBackModal} style={{borderColor:'#60a5fa',background:'#60a5fa',color:'#0a1a30'}}>
+                <span style={{display:'inline-flex',alignItems:'center',gap:6}}>Flag for transport back</span>
+              </button>
+            </div>
+          </ModalShell>
+        )}
+
         {resolveTarget && (
           <ModalShell
             title="Resolve discrepancy"
@@ -4875,18 +5042,6 @@ function App() {
                   ))}
                 </div>
               )}
-            </div>
-            <div style={{marginBottom:14}}>
-              <button
-                onClick={() => setResolveTransportBack(v => !v)}
-                title="Flag this cane to be transported back to the originating clinic. It still resolves normally and is tracked for return shipment."
-                style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:6,cursor:'pointer',fontFamily:'inherit',textAlign:'left',border:'1px solid '+(resolveTransportBack?'var(--cryo-cyan)':'#2a2d36'),background:resolveTransportBack?'rgba(24,227,187,0.08)':'transparent'}}>
-                <span style={{width:16,height:16,borderRadius:4,border:'1px solid '+(resolveTransportBack?'var(--cryo-cyan)':'#3a3d46'),background:resolveTransportBack?'var(--cryo-cyan)':'transparent',display:'inline-flex',alignItems:'center',justifyContent:'center',flexShrink:0,color:'#06231d'}}>{resolveTransportBack && <Icon.Check size={11}/>}</span>
-                <span style={{display:'flex',flexDirection:'column'}}>
-                  <span style={{fontSize:13,fontWeight:600,color:resolveTransportBack?'#5eead4':'#e5e7eb'}}>Request transport back to clinic</span>
-                  <span style={{fontSize:11,color:'#6b7280',marginTop:1}}>Resolves normally and tracks this cane for return shipment.</span>
-                </span>
-              </button>
             </div>
             <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
               <button className="btn-outline" onClick={closeResolve}>Cancel</button>

@@ -1676,7 +1676,7 @@ function DiscrepancyView({ rows, onClose, onOpenCane }) {
     tableRows.push({
       type: 'manual',
       caneId: r.id, rfid: r.rfid, patient: r.patient, mrn: r.mrn, shipper: r.shipper,
-      stage: r.stage, flagType: 'Manually Added',
+      stage: r.stage, flagType: 'Manually added, not on manifest',
       field: '\u2014', expected: 'Not on manifest', actual: 'Added during intake',
       note: 'Cane was not on the original manifest and was added by the operator.',
       followUps: r.followUps || [], files: [], transportBack: false, actionBy: '', actionAt: null,
@@ -1699,7 +1699,7 @@ function DiscrepancyView({ rows, onClose, onOpenCane }) {
   const stageLabel = (s) => s === 'identification' ? 'ID Canes' : (s === 'verified' ? 'Ready to Store' : 'Stored');
 
   const exportCSV = () => {
-    const typeLabel = (t) => t === 'manual' ? 'Manually Added' : t === 'removed' ? 'Removed' : t === 'resolved' ? 'Resolved' : 'Flagged';
+    const typeLabel = (t) => t === 'manual' ? 'Added' : t === 'removed' ? 'Missing' : t === 'resolved' ? 'Resolved' : 'Flagged';
     const fmtTs = (ts) => ts ? new Date(ts).toLocaleString() : '';
     const fmtFollow = (fus) => (fus || []).map(f => `${f.note} (${fmtEventTime(f.at)}, ${f.by}${f.files && f.files.length ? `, ${f.files.length} file${f.files.length === 1 ? '' : 's'}` : ''})`).join(' | ');
     const headers = ['Type','Cane RFID','Patient','MRN','Shipper','Stage','Flag Type','Field','Expected','Actual','Notes','Transport Back','Action By','Action At','Attached Files','Follow-ups'];
@@ -1782,8 +1782,8 @@ function DiscrepancyView({ rows, onClose, onOpenCane }) {
                       <button onClick={() => onOpenCane(r.caneId)} className="btn-outline" style={{padding:'5px 14px',fontSize:11.5}}>Open</button>
                     </td>
                     <td>{
-                      r.type === 'manual' ? <span style={{padding:'2px 8px',borderRadius:3,background:'rgba(96,165,250,0.15)',color:'#60a5fa',fontSize:11,fontWeight:600}}>Manual</span>
-                      : r.type === 'removed' ? <span style={{padding:'2px 8px',borderRadius:3,background:'rgba(156,163,175,0.15)',color:'#9ca3af',fontSize:11,fontWeight:600}}>Removed</span>
+                      r.type === 'manual' ? <span style={{padding:'2px 8px',borderRadius:3,background:'rgba(96,165,250,0.15)',color:'#60a5fa',fontSize:11,fontWeight:600}}>Added</span>
+                      : r.type === 'removed' ? <span style={{padding:'2px 8px',borderRadius:3,background:'rgba(156,163,175,0.15)',color:'#9ca3af',fontSize:11,fontWeight:600}}>Missing</span>
                       : r.type === 'resolved' ? <span style={{padding:'2px 8px',borderRadius:3,background:'rgba(34,197,94,0.15)',color:'#4ade80',fontSize:11,fontWeight:600}}>Resolved</span>
                       : <span style={{padding:'2px 8px',borderRadius:3,background:'rgba(249,128,128,0.15)',color:'#f98080',fontSize:11,fontWeight:600}}>Flag</span>
                     }</td>
@@ -1832,10 +1832,10 @@ function CaneDrawer({
   const [printing, setPrinting] = dUseState(false);
   const [associating, setAssociating] = dUseState(false);
   const [tagAssociated, setTagAssociated] = dUseState(false);
-  const [discrepancy, setDiscrepancy] = dUseState(false);
   const [discrepancyFields, setDiscrepancyFields] = dUseState({});
   const [discrepancyNote, setDiscrepancyNote] = dUseState('');
   const [damaged, setDamaged] = dUseState(false);
+  const [fieldStatus, setFieldStatus] = dUseState({}); // { [fieldKey]: 'verified' | 'flagged' }
 
   // Re-init state when row changes
   dUseEffect(() => {
@@ -1845,7 +1845,7 @@ function CaneDrawer({
     });
     setPhotos([]); setFiles([]);
     setPrinted(false); setPrinting(false); setAssociating(false); setTagAssociated(false);
-    setDiscrepancy(false); setDiscrepancyFields({}); setDiscrepancyNote(''); setDamaged(false);
+    setDiscrepancyFields({}); setDiscrepancyNote(''); setDamaged(false); setFieldStatus({});
   }, [row.id]);
 
   // Esc / nav keys
@@ -1864,18 +1864,26 @@ function CaneDrawer({
 
   const setF = (k, v) => setLoc(prev => ({ ...prev, [k]: v }));
 
-  // Discrepancy helpers
-  const toggleDiscField = (key, expected) => {
-    setDiscrepancyFields(prev => {
-      if (prev[key]) { const next = {...prev}; delete next[key]; return next; }
-      return {...prev, [key]: {expected, actual: ''}};
-    });
+  // Discrepancy / verification helpers (per field during identification)
+  const verifyField = (key) => {
+    setFieldStatus(prev => ({ ...prev, [key]: 'verified' }));
+    setDiscrepancyFields(prev => { const n = { ...prev }; delete n[key]; return n; });
+  };
+  const flagField = (key, expected) => {
+    setFieldStatus(prev => ({ ...prev, [key]: 'flagged' }));
+    setDiscrepancyFields(prev => prev[key] ? prev : ({ ...prev, [key]: { expected, actual: '' } }));
+  };
+  const clearField = (key) => {
+    setFieldStatus(prev => { const n = { ...prev }; delete n[key]; return n; });
+    setDiscrepancyFields(prev => { const n = { ...prev }; delete n[key]; return n; });
   };
   const setDiscActual = (key, value) => {
-    setDiscrepancyFields(prev => ({...prev, [key]: {...prev[key], actual: value}}));
+    setDiscrepancyFields(prev => ({ ...prev, [key]: { ...prev[key], actual: value } }));
   };
-  const fieldsValid = Object.keys(discrepancyFields).length > 0 && Object.values(discrepancyFields).every(f => f.actual?.trim());
-  const discValid = !discrepancy || damaged || fieldsValid;
+  const anyFlagged = Object.keys(discrepancyFields).length > 0;
+  const discrepancy = anyFlagged || damaged; // any committed discrepancy on this cane
+  const flaggedActualsOk = Object.values(discrepancyFields).every(f => f.actual?.trim());
+  const discValid = flaggedActualsOk;
 
   // Photo/file handlers
   const handlePhoto = (e) => {
@@ -1926,8 +1934,11 @@ function CaneDrawer({
     { key: 'Freeze Date',      expected: row.freezeDate || '\u2014', mono: true },
   ];
 
-  // Confirm gate (identification only)
-  const canConfirm = photos.length >= 1 && printed && tagAssociated && discValid;
+  // Confirm gate (identification only): every populated field must be verified or flagged
+  const populatedKeys = confirmFields.filter(f => f.expected && f.expected !== '\u2014').map(f => f.key);
+  const untriagedCount = isIdent ? populatedKeys.filter(k => !fieldStatus[k]).length : 0;
+  const allTriaged = untriagedCount === 0;
+  const canConfirm = photos.length >= 1 && printed && tagAssociated && discValid && allTriaged;
 
   const StatusBadge = () => {
     if (row.flagged) return <span className="badge flagged"><span className="dotty"/>Flagged</span>;
@@ -1967,14 +1978,6 @@ function CaneDrawer({
               </div>
             </div>
             <div className="dr-head-actions">
-              {isIdent && (
-                <button
-                  className={`dr-qa-btn flag ${discrepancy ? 'on' : ''}`}
-                  onClick={() => { setDiscrepancy(!discrepancy); if (discrepancy) { setDiscrepancyFields({}); setDiscrepancyNote(''); setDamaged(false); } }}
-                  title="Flag a field that does not match, mark the cane damaged, or flag it missing">
-                  <Icon.Warn/>{discrepancy ? 'Flagging' : 'Mark Discrepancy'}
-                </button>
-              )}
               <button className="dr-close" onClick={onClose} aria-label="Close drawer"><Icon.X/></button>
             </div>
           </div>
@@ -1987,32 +1990,73 @@ function CaneDrawer({
           <section className="dr-section">
             <div className="dr-section-label" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
               <span>Confirm against the physical cane</span>
-              {isIdent && discrepancy && <span style={{color:'#f98080',fontWeight:600,fontSize:10.5,textTransform:'none',letterSpacing:0}}>Tap “Flag” on any field that differs</span>}
+              {isIdent && (untriagedCount > 0
+                ? <span style={{color:'#fbbf24',fontWeight:600,fontSize:10.5,textTransform:'none',letterSpacing:0}}>{untriagedCount} field{untriagedCount===1?'':'s'} left to confirm</span>
+                : <span style={{color:'#4ade80',fontWeight:600,fontSize:10.5,textTransform:'none',letterSpacing:0}}>All fields confirmed</span>)}
             </div>
             <div className="dr-readonly-grid">
               {confirmFields.map(f => {
-                const flagged = !!discrepancyFields[f.key];
-                const flagMode = isIdent && discrepancy;
+                const populated = f.expected && f.expected !== '\u2014';
+                const status = fieldStatus[f.key];
+                const flagged = status === 'flagged';
+                const verified = status === 'verified';
+                // Committed discrepancy for this field (verified/placed stages)
+                const committed = (!isIdent && (
+                  (row.discrepancyDetail && row.discrepancyDetail.fields && row.discrepancyDetail.fields[f.key]) ||
+                  (row.resolvedDiscrepancy && row.resolvedDiscrepancy.detail && row.resolvedDiscrepancy.detail.fields && row.resolvedDiscrepancy.detail.fields[f.key])
+                )) || null;
+                const cellStyle = flagged
+                  ? {background:'rgba(249,128,128,0.06)',border:'1px solid rgba(249,128,128,0.3)',borderRadius:6,padding:8}
+                  : verified
+                  ? {background:'rgba(34,197,94,0.05)',border:'1px solid rgba(34,197,94,0.25)',borderRadius:6,padding:8}
+                  : committed
+                  ? {background:'rgba(249,128,128,0.06)',border:'1px solid rgba(249,128,128,0.3)',borderRadius:6,padding:8}
+                  : undefined;
                 return (
-                  <div key={f.key} className="rd-cell" style={flagged ? {background:'rgba(249,128,128,0.06)',border:'1px solid rgba(249,128,128,0.3)',borderRadius:6,padding:8} : undefined}>
+                  <div key={f.key} className="rd-cell" style={cellStyle}>
                     <div className="rd-label" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:6}}>
                       <span>{f.key}</span>
-                      {flagMode && (
-                        <button
-                          onClick={() => toggleDiscField(f.key, f.expected)}
-                          title={flagged ? 'Remove this flag' : 'Flag this field as different from the manifest'}
-                          style={{display:'inline-flex',alignItems:'center',gap:4,padding:'2px 7px',fontSize:9.5,fontWeight:700,fontFamily:'inherit',borderRadius:4,cursor:'pointer',textTransform:'none',letterSpacing:0,border:'1px solid '+(flagged?'#f98080':'rgba(249,128,128,0.45)'),background:flagged?'#f98080':'transparent',color:flagged?'#2a0e0e':'#f98080'}}>
-                          <Icon.Warn/>{flagged?'Flagged':'Flag'}
-                        </button>
+                      {isIdent && populated && (
+                        <span style={{display:'inline-flex',gap:5}}>
+                          <button
+                            onClick={() => verified ? clearField(f.key) : verifyField(f.key)}
+                            title={verified ? 'Verified — tap to clear' : 'Mark this field as verified against the cane'}
+                            style={{display:'inline-flex',alignItems:'center',gap:3,padding:'2px 7px',fontSize:9.5,fontWeight:700,fontFamily:'inherit',borderRadius:4,cursor:'pointer',textTransform:'none',letterSpacing:0,border:'1px solid '+(verified?'#22c55e':'rgba(34,197,94,0.45)'),background:verified?'#22c55e':'transparent',color:verified?'#06231d':'#4ade80'}}>
+                            <Icon.Check size={9}/>{verified?'Verified':'Verify'}
+                          </button>
+                          <button
+                            onClick={() => flagged ? clearField(f.key) : flagField(f.key, f.expected)}
+                            title={flagged ? 'Remove this flag' : 'Flag this field as different from the manifest'}
+                            style={{display:'inline-flex',alignItems:'center',gap:3,padding:'2px 7px',fontSize:9.5,fontWeight:700,fontFamily:'inherit',borderRadius:4,cursor:'pointer',textTransform:'none',letterSpacing:0,border:'1px solid '+(flagged?'#f98080':'rgba(249,128,128,0.45)'),background:flagged?'#f98080':'transparent',color:flagged?'#2a0e0e':'#f98080'}}>
+                            <Icon.Warn/>{flagged?'Flagged':'Flag'}
+                          </button>
+                        </span>
                       )}
                     </div>
-                    <div className={`rd-value ${f.mono?'mono':''}`} style={f.tone}>
-                      {flagMode && flagged && <span style={{color:'#9ca3af',fontWeight:500,fontFamily:'var(--font-sans)'}}>Expected: </span>}
-                      {f.swatch
-                        ? <span><span style={{display:'inline-block',width:11,height:11,borderRadius:'50%',background:f.swatch,marginRight:8,verticalAlign:'middle',border:'1px solid rgba(255,255,255,0.2)'}}/>{f.expected}</span>
-                        : f.expected}
-                    </div>
-                    {flagMode && flagged && (
+
+                    {committed ? (
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:2}}>
+                        <div>
+                          <div style={{fontSize:9,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.05em'}}>Expected</div>
+                          <div className={`${f.mono?'mono':''}`} style={{fontSize:13,color:'#e5e7eb'}}>
+                            {f.swatch ? <span><span style={{display:'inline-block',width:11,height:11,borderRadius:'50%',background:f.swatch,marginRight:6,verticalAlign:'middle',border:'1px solid rgba(255,255,255,0.2)'}}/>{committed.expected || f.expected}</span> : (committed.expected || f.expected)}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{fontSize:9,color:'#f98080',textTransform:'uppercase',letterSpacing:'0.05em'}}>Actual on cane</div>
+                          <div className={`${f.mono?'mono':''}`} style={{fontSize:13,color:'#f98080',fontWeight:600}}>{committed.actual || '\u2014'}</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={`rd-value ${f.mono?'mono':''}`} style={f.tone}>
+                        {isIdent && flagged && <span style={{color:'#9ca3af',fontWeight:500,fontFamily:'var(--font-sans)'}}>Expected: </span>}
+                        {f.swatch
+                          ? <span><span style={{display:'inline-block',width:11,height:11,borderRadius:'50%',background:f.swatch,marginRight:8,verticalAlign:'middle',border:'1px solid rgba(255,255,255,0.2)'}}/>{f.expected}</span>
+                          : f.expected}
+                      </div>
+                    )}
+
+                    {isIdent && flagged && (
                       <div style={{marginTop:6}}>
                         <input value={discrepancyFields[f.key]?.actual || ''} onChange={(e) => setDiscActual(f.key, e.target.value)} placeholder="Actual value on cane"
                           style={{width:'100%',padding:'5px 8px',fontSize:12,background:'#0f1117',border:'1px solid #2a2d36',borderRadius:4,color:'#fff',fontFamily:'inherit'}}/>
@@ -2022,8 +2066,9 @@ function CaneDrawer({
                 );
               })}
             </div>
-            {isIdent && discrepancy && (
+            {isIdent && (
               <div style={{marginTop:12}}>
+                <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.06em',fontWeight:600,marginBottom:8}}>Cane-level issues</div>
                 <div style={{display:'flex',gap:10,marginBottom:10}}>
                   <button
                     onClick={() => setDamaged(d => !d)}
@@ -2038,11 +2083,12 @@ function CaneDrawer({
                     <Icon.Warn/>Flag as missing
                   </button>
                 </div>
-                {!damaged && Object.keys(discrepancyFields).length === 0 && (
-                  <div style={{padding:'5px 8px',background:'rgba(249,128,128,0.08)',border:'1px solid rgba(249,128,128,0.2)',borderRadius:3,fontSize:10.5,color:'#f98080',marginBottom:8}}>Flag at least one field above, mark the cane damaged, flag it missing, or turn off Mark Discrepancy.</div>
+                {(anyFlagged || damaged) && (
+                  <>
+                    <label style={{display:'block',fontSize:11,color:'#9ca3af',fontWeight:600,marginBottom:5,textTransform:'uppercase',letterSpacing:'0.05em'}}>Discrepancy notes{damaged ? ' (damage detail)' : ''}</label>
+                    <textarea value={discrepancyNote} onChange={(e) => setDiscrepancyNote(e.target.value)} rows={2} placeholder={damaged ? 'Describe the damage (crack, frost, missing label, etc.).' : 'Optional context for the client report.'} style={{width:'100%',padding:'7px 10px',fontSize:12.5,background:'#0f1117',border:'1px solid #2a2d36',borderRadius:4,color:'#fff',fontFamily:'inherit',resize:'vertical'}}/>
+                  </>
                 )}
-                <label style={{display:'block',fontSize:11,color:'#9ca3af',fontWeight:600,marginBottom:5,textTransform:'uppercase',letterSpacing:'0.05em'}}>Discrepancy notes{damaged ? ' (damage detail)' : ''}</label>
-                <textarea value={discrepancyNote} onChange={(e) => setDiscrepancyNote(e.target.value)} rows={2} placeholder={damaged ? 'Describe the damage (crack, frost, missing label, etc.).' : 'Optional context for the client report.'} style={{width:'100%',padding:'7px 10px',fontSize:12.5,background:'#0f1117',border:'1px solid #2a2d36',borderRadius:4,color:'#fff',fontFamily:'inherit',resize:'vertical'}}/>
               </div>
             )}
           </section>
@@ -2051,7 +2097,7 @@ function CaneDrawer({
           {(() => {
             const isManualOpen = row.manual && !row.resolvedDiscrepancy;
             const isOpenDisc = row.flagged || isManualOpen;
-            const flagType = row.flagType || (row.manual ? 'Manually Added' : 'Flagged');
+            const flagType = row.flagType || (row.manual ? 'Manually added, not on manifest' : 'Flagged');
             if (!isOpenDisc && !row.resolvedDiscrepancy) return null;
             return (
               <section className="dr-section">
@@ -2089,7 +2135,7 @@ function CaneDrawer({
                         className="btn-outline"
                         style={{padding:'7px 14px',fontSize:12.5,borderColor:'rgba(249,128,128,0.4)',color:'#f98080'}}
                         onClick={() => onRequestRemove({ type: row.flagged ? 'flag' : 'manual', caneId: row.id, rfid: row.rfid })}>
-                        Remove from report
+                        Remove as Discrepancy
                       </button>
                     </div>
                   </div>
@@ -2326,10 +2372,11 @@ function CaneDrawer({
           {/* Primary CTA */}
           {isIdent && (() => {
             const need = [
+              untriagedCount > 0 ? `verify or flag ${untriagedCount} remaining field${untriagedCount===1?'':'s'}` : null,
               !printed ? 'print the RFID tag' : null,
               (printed && !tagAssociated) ? 'scan the tag on the handheld to associate it' : null,
               photos.length < 1 ? 'take at least one photo or video' : null,
-              (discrepancy && !discValid) ? 'fill in the flagged field value(s)' : null,
+              (anyFlagged && !discValid) ? 'fill in the flagged field value(s)' : null,
             ].filter(Boolean);
             const blockReason = need.length ? 'Still needed: ' + need.join(', ') : '';
             return (
@@ -3648,10 +3695,10 @@ function SealVerifiedBanner({ shipperId, verification, onAddPhotos }) {
 
 
 /* ==================== Complete Intake + Manual Add modals ==================== */
-function ModalShell({ title, sub, children, onClose }) {
+function ModalShell({ title, sub, children, onClose, maxWidth = 460 }) {
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:200,display:'grid',placeItems:'center',padding:24}} onClick={onClose}>
-      <div className="cryo-card" style={{background:'#14161c',width:'100%',maxWidth:460,boxShadow:'var(--shadow-lg)'}} onClick={(e) => e.stopPropagation()}>
+      <div className="cryo-card" style={{background:'#14161c',width:'100%',maxWidth,maxHeight:'88vh',overflowY:'auto',boxShadow:'var(--shadow-lg)'}} onClick={(e) => e.stopPropagation()}>
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,marginBottom:14}}>
           <div>
             <div style={{fontSize:16,fontWeight:600,color:'#fff'}}>{title}</div>
@@ -3674,6 +3721,136 @@ function CompleteIntakeModal({ count, onConfirm, onClose }) {
       <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:6}}>
         <button className="btn-outline" onClick={onClose}>Cancel</button>
         <button className="btn-teal" onClick={onConfirm}><span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon.Check size={11}/>Finalize intake</span></button>
+      </div>
+    </ModalShell>
+  );
+}
+
+const ATTEST_LANGUAGE = "I, the undersigned authorized representative of the receiving clinic, attest that I have reviewed all discrepancies identified in this report and provide my response to each. I confirm that my responses are accurate and complete to the best of my knowledge, that I have performed all necessary verification and due diligence, and I accept this document as the reconciled record of transfer. Where a return shipment has been requested, I acknowledge that fulfillment is subject to CryoFuture's next scheduled shipment cycle. This attestation is binding and will be retained as part of the permanent transfer record.";
+
+function AttestationModal({ rows, ticket, onClose, onSign, signed }) {
+  const [name, setName] = useState('');
+  const [title, setTitle] = useState('');
+  const [agreed, setAgreed] = useState(false);
+  const stageLabel = (s) => s === 'identification' ? 'ID Canes' : (s === 'verified' ? 'Ready to Store' : 'Stored');
+
+  const items = rows
+    .filter(r => r.flagged || r.resolvedDiscrepancy || r.removed || r.manual)
+    .map(r => {
+      const rd = r.resolvedDiscrepancy;
+      let state, response, transportBack = false;
+      if (r.removed) {
+        const missing = r.stage === 'identification';
+        state = missing ? 'Missing from shipment' : 'Removed';
+        response = r.removedReason ? `Removed as discrepancy — ${r.removedReason}${r.removedDoc ? `: ${r.removedDoc}` : ''}` : 'Removed from report';
+      } else if (rd) {
+        state = 'Resolved';
+        response = rd.note || 'Resolved';
+        transportBack = !!rd.transportBack;
+      } else {
+        state = 'OPEN';
+        response = 'Not yet resolved';
+      }
+      const type = (rd && rd.type) || r.flagType || (r.manual ? 'Manually added, not on manifest' : 'Discrepancy');
+      const fields = (rd && rd.detail && rd.detail.fields) || (r.discrepancyDetail && r.discrepancyDetail.fields) || null;
+      return { id: r.id, rfid: r.rfid, patient: r.patient, mrn: r.mrn, stage: r.stage, type, state, response, transportBack, fields, followUps: r.followUps || [] };
+    });
+
+  const openCount = items.filter(i => i.state === 'OPEN').length;
+  const transportCount = items.filter(i => i.transportBack).length;
+  const canSign = name.trim() && title.trim() && agreed && openCount === 0;
+  const stateColor = (s) => s === 'Resolved' ? '#4ade80' : s === 'OPEN' ? '#f98080' : '#9ca3af';
+
+  return (
+    <ModalShell
+      title="Discrepancy reconciliation & attestation"
+      sub={`${ticket.clinic} · ${ticket.facility} · ${items.length} discrepanc${items.length === 1 ? 'y' : 'ies'} on this transfer${transportCount ? ` · ${transportCount} return shipment${transportCount === 1 ? '' : 's'} requested` : ''}`}
+      onClose={onClose}
+      maxWidth={760}>
+
+      {items.length === 0 ? (
+        <div style={{padding:'24px 12px',textAlign:'center',color:'#9ca3af',fontSize:13}}>No discrepancies were recorded on this intake. Nothing to attest.</div>
+      ) : (
+        <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:18}}>
+          {items.map((it, idx) => (
+            <div key={it.id} style={{border:'1px solid #2a2d36',borderRadius:8,overflow:'hidden'}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'rgba(255,255,255,0.02)',borderBottom:'1px solid #23262e',flexWrap:'wrap'}}>
+                <span style={{fontSize:11,color:'#6b7280',fontWeight:600}}>{idx + 1}.</span>
+                <span className="mono" style={{fontSize:12,color:'#cbd5e1',fontWeight:600}}>{it.rfid && it.rfid !== '\u2014' ? it.rfid : '(no tag)'}</span>
+                <span style={{fontSize:12.5,color:'#e5e7eb'}}>{it.patient}</span>
+                <span className="mono" style={{fontSize:11,color:'#6b7280'}}>{it.mrn}</span>
+                <span style={{fontSize:11,color:'#9ca3af'}}>{stageLabel(it.stage)}</span>
+                <span style={{marginLeft:'auto',fontSize:11,fontWeight:700,color:stateColor(it.state)}}>{it.state}</span>
+              </div>
+              <div style={{padding:'10px 12px'}}>
+                <div style={{fontSize:12,color:'#f98080',fontWeight:600,marginBottom:6}}>{it.type}</div>
+                {it.fields && Object.keys(it.fields).length > 0 && (
+                  <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:8}}>
+                    {Object.entries(it.fields).map(([k, v]) => (
+                      <div key={k} style={{display:'grid',gridTemplateColumns:'150px 1fr 1fr',gap:8,fontSize:11.5,alignItems:'center'}}>
+                        <span style={{color:'#9ca3af',textTransform:'uppercase',letterSpacing:'0.04em',fontSize:10,fontWeight:600}}>{k}</span>
+                        <span style={{color:'#cbd5e1'}}>Expected: {v.expected || '\u2014'}</span>
+                        <span style={{color:'#f98080',fontWeight:600}}>Actual: {v.actual || '\u2014'}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div style={{fontSize:12,color:'#cbd5e1',lineHeight:1.5}}><span style={{color:'#6b7280'}}>Response: </span>{it.response}</div>
+                {it.transportBack && <div style={{marginTop:6,display:'inline-flex',alignItems:'center',gap:6,padding:'2px 8px',borderRadius:4,background:'rgba(96,165,250,0.12)',border:'1px solid rgba(96,165,250,0.3)',color:'#93c5fd',fontSize:10.5,fontWeight:600}}>Return shipment requested</div>}
+                {it.followUps.length > 0 && <div style={{marginTop:6,fontSize:11,color:'#6b7280'}}>{it.followUps.length} follow-up{it.followUps.length === 1 ? '' : 's'} on record</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {openCount > 0 && (
+        <div style={{padding:'8px 12px',background:'rgba(249,128,128,0.08)',border:'1px solid rgba(249,128,128,0.25)',borderRadius:6,fontSize:12,color:'#f98080',marginBottom:16}}>
+          {openCount} discrepanc{openCount === 1 ? 'y is' : 'ies are'} still open. All must be resolved or removed before this attestation can be signed.
+        </div>
+      )}
+
+      <div style={{borderTop:'1px solid #23262e',paddingTop:16}}>
+        <div style={{fontSize:11,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.06em',fontWeight:700,marginBottom:10}}>Attestation</div>
+        {signed ? (
+          <div>
+            <div style={{padding:'12px',borderRadius:8,border:'1px solid rgba(34,197,94,0.3)',background:'rgba(34,197,94,0.05)'}}>
+              <div style={{fontSize:12.5,color:'#cbd5e1',lineHeight:1.6,marginBottom:10}}>{ATTEST_LANGUAGE}</div>
+              <div style={{display:'inline-flex',alignItems:'center',gap:8,fontSize:12.5,color:'#4ade80',fontWeight:600}}><Icon.Lock/>Signed by {signed.name}, {signed.title} · {new Date(signed.at).toLocaleString()}</div>
+            </div>
+            <div style={{display:'flex',justifyContent:'flex-end',marginTop:16}}>
+              <button className="btn-outline" onClick={onClose}>Close</button>
+            </div>
+          </div>
+        ) : (
+        <>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
+          <div>
+            <div style={{fontSize:11,color:'#9ca3af',marginBottom:5,fontWeight:600}}>Full name *</div>
+            <input className="cryo-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="First and last name"/>
+          </div>
+          <div>
+            <div style={{fontSize:11,color:'#9ca3af',marginBottom:5,fontWeight:600}}>Title / role *</div>
+            <input className="cryo-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Lab Director, Embryologist"/>
+          </div>
+        </div>
+        <label style={{display:'flex',gap:10,alignItems:'flex-start',cursor:'pointer',padding:'12px',borderRadius:8,border:'1px solid '+(agreed?'var(--cryo-cyan)':'#2a2d36'),background:agreed?'rgba(24,227,187,0.05)':'rgba(255,255,255,0.01)'}}>
+          <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{marginTop:3,width:15,height:15,cursor:'pointer',flexShrink:0}}/>
+          <span style={{fontSize:12,color:'#cbd5e1',lineHeight:1.6}}>{ATTEST_LANGUAGE}</span>
+        </label>
+        <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:16}}>
+          <button className="btn-outline" onClick={onClose}>Cancel</button>
+          <button
+            className="btn-teal"
+            disabled={!canSign}
+            onClick={() => onSign({ name: name.trim(), title: title.trim(), at: Date.now() })}
+            title={openCount > 0 ? 'Resolve all open discrepancies first' : (!name.trim() || !title.trim() ? 'Enter your name and title' : (!agreed ? 'Read and agree to the attestation' : 'Sign and finalize'))}
+            style={{opacity:canSign?1:0.5,cursor:canSign?'pointer':'not-allowed'}}>
+            <span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon.Lock/>Sign &amp; finalize intake</span>
+          </button>
+        </div>
+        </>
+        )}
       </div>
     </ModalShell>
   );
@@ -3737,6 +3914,8 @@ function App() {
   const [search, setSearch] = useState('');
   const [intakeComplete, setIntakeComplete] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [attestOpen, setAttestOpen] = useState(false);
+  const [signedAttestation, setSignedAttestation] = useState(null);
   const [showAddCane, setShowAddCane] = useState(false);
 
   // suggest block tooltip auto-dismisses
@@ -3922,6 +4101,7 @@ function App() {
     setCurrentShipper(1); setDoneShippers([]); setSearch(''); setSealVerified({});
     setSortDir('asc'); setTab('identification');
     setIntakeComplete(false); setShowCompleteModal(false); setShowAddCane(false);
+    setAttestOpen(false); setSignedAttestation(null);
   };
 
   // Demo: skip the seal/canister photo capture for the current shipper.
@@ -3966,6 +4146,38 @@ function App() {
   // Demo: jump to the fully-stored end state.
   const demoAllStored = () => { demoPlaceAll(); setTab('placed'); };
 
+  // Demo: populate a mix of discrepancies, all resolved/removed, and open the attestation.
+  const demoAttestation = () => {
+    const at = Date.now() - 18 * 60 * 1000;
+    let n = 0;
+    setRows(prev => prev.map(r => {
+      if (r.stage !== 'identification' || r.removed) return r;
+      n += 1;
+      if (n > 10) return r;
+      const t = at + n * 60 * 1000;
+      const resAt = t + 6 * 60 * 1000;
+      const evs = [
+        { type: 'identified', label: 'Identity confirmed against manifest', at: t, by: 'Ryan Sims', device: 'CryoFuture Signal' },
+        { type: 'rfid', label: 'RFID tag associated', at: t + 30000, by: 'Ryan Sims', device: 'CryoFuture Signal' },
+      ];
+      const base = { ...r, stage: 'verified', verifiedAt: t, shipper: r.shipper || currentShipper, idPhotos: [{ name: 'cane-front.jpg' }, { name: 'cane-cap.jpg' }], events: [...(r.events || []), ...evs] };
+      const resolve = (type, detail, note, tb) => ({
+        ...base, flagged: false, flagType: type, discrepancyDetail: detail,
+        resolvedDiscrepancy: { type, detail, note, files: [], transportBack: !!tb, by: OPERATOR, at: resAt },
+        events: [...base.events, { type: 'resolved', label: 'Discrepancy resolved', at: resAt, by: OPERATOR }],
+      });
+      switch (n % 5) {
+        case 1: return resolve('Specimen type mismatch', { fields: { 'Specimen Type': { expected: 'Embryos', actual: 'Oocyte' } } }, 'Confirmed with clinic: manifest entry was a typo, carrier is correct (Embryos). Record corrected.', false);
+        case 2: return resolve('Identification discrepancy', { fields: { 'Date of Birth': { expected: r.dob, actual: '1990-01-01' }, 'Cane tab color': { expected: r.capLabel, actual: 'Green' } } }, 'Clinic verified patient identity by MRN; tab re-labeled at receipt.', false);
+        case 3: return resolve('Damaged cane', { fields: {}, damaged: true }, 'Damage photographed; clinic requested return for inspection.', true);
+        case 4: return { ...base, manual: true, flagged: false, resolvedDiscrepancy: { type: 'Manually Added', detail: null, note: 'Extra cane verified against clinic records and added to transfer.', files: [], transportBack: false, by: OPERATOR, at: resAt }, events: [...base.events, { type: 'resolved', label: 'Discrepancy resolved', at: resAt, by: OPERATOR }] };
+        default: return { ...r, removed: true, removedAt: resAt, removedBy: OPERATOR, removedReason: 'Verified correct on re-check', removedDoc: 'Cane located in adjacent canister; manifest position corrected.' };
+      }
+    }));
+    setSignedAttestation(null);
+    setAttestOpen(true);
+  };
+
   const allRows = useMemo(() => [...rows, ...completed], [rows, completed]);
   const openRowIndex = openRowId ? allRows.findIndex(r => r.id === openRowId) : -1;
   const openRow = openRowIndex >= 0 ? allRows[openRowIndex] : null;
@@ -3999,6 +4211,7 @@ function App() {
   const allPlaced = liveRows.length > 0 && placedDoneCount === liveRows.length;
   const openFlags = rows.filter(r => !r.removed && (r.flagged || (r.manual && !r.resolvedDiscrepancy))).length;
   const canComplete = allPlaced && openFlags === 0;
+  const hasDiscrepancies = rows.some(r => r.flagged || r.resolvedDiscrepancy || r.removed || r.manual);
   const stageRows = tab === 'identification' ? idRows : tab === 'verified' ? verifiedRows : placedRows;
   const visibleCount = stageRows.length;
   const totalForTab = tab === 'identification' ? TICKET.canes : stageRows.length;
@@ -4116,7 +4329,7 @@ function App() {
       return {
         ...r,
         flagged: false,
-        resolvedDiscrepancy: { type: r.flagType || (r.manual ? 'Manually Added' : 'Discrepancy'), detail: r.discrepancyDetail, note: entry.note, files: entry.files || [], transportBack: !!entry.transportBack, by: OPERATOR, at },
+        resolvedDiscrepancy: { type: r.flagType || (r.manual ? 'Manually added, not on manifest' : 'Discrepancy'), detail: r.discrepancyDetail, note: entry.note, files: entry.files || [], transportBack: !!entry.transportBack, by: OPERATOR, at },
         events: [...(r.events || []), ...evs],
       };
     }));
@@ -4199,7 +4412,10 @@ function App() {
               <button className="demo-tool-btn" onClick={demoSkipSeal} title="Skip the seal + canister photo step for the current shipper and jump to the ID Canes table">Skip seal photos</button>
               <button className="demo-tool-btn" onClick={demoLoadDiscrepancies} title="Promote a batch of canes to Ready to Store with assorted discrepancy types (field mismatch, multi-field, damaged, damaged + field, manually added)">Load discrepancies</button>
               {!intakeComplete && (
+                <>
                 <button className="demo-tool-btn" onClick={demoAllStored} title="Jump to the final state with every cane Stored">All stored</button>
+                <button className="demo-tool-btn" onClick={demoAttestation} title="Populate a mix of discrepancies, all resolved/removed, and open the end-of-intake clinic attestation">Show attestation</button>
+                </>
               )}
               {applied && <button className="demo-tool-btn" onClick={() => setShowAfterState(s => !s)}>{showAfterState ? 'View: before apply' : 'View: after apply'}</button>}
             </div>
@@ -4223,12 +4439,20 @@ function App() {
                 </select>
               </div>
               {intakeComplete ? (
-                <span className="badge completed" style={{height:34,padding:'0 14px',fontSize:12}}><Icon.Check size={11}/>Intake Complete</span>
+                <span style={{display:'inline-flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+                  <span className="badge completed" style={{height:34,padding:'0 14px',fontSize:12}}><Icon.Check size={11}/>Intake Complete</span>
+                  {signedAttestation && (
+                    <span style={{fontSize:11.5,color:'#9ca3af'}}>
+                      Attested by <strong style={{color:'#e5e7eb'}}>{signedAttestation.name}</strong>, {signedAttestation.title} · {fmtEventTime(signedAttestation.at)}
+                      <button onClick={() => setAttestOpen(true)} style={{marginLeft:8,background:'none',border:'none',color:'var(--cryo-cyan)',cursor:'pointer',fontSize:11.5,fontFamily:'inherit',padding:0,textDecoration:'underline'}}>View</button>
+                    </span>
+                  )}
+                </span>
               ) : (
                 <button
                   className="btn-teal"
                   disabled={!canComplete}
-                  onClick={() => setShowCompleteModal(true)}
+                  onClick={() => hasDiscrepancies ? setAttestOpen(true) : setShowCompleteModal(true)}
                   title={canComplete
                     ? 'Finalize chain-of-custody and discrepancy reports on the transport record'
                     : "You can't complete intake until all canes are placed and discrepancies are resolved"}>
@@ -4403,6 +4627,22 @@ function App() {
             count={liveRows.length}
             onConfirm={() => { setIntakeComplete(true); setStatus('completed'); setShowCompleteModal(false); }}
             onClose={() => setShowCompleteModal(false)}
+          />
+        )}
+
+        {attestOpen && (
+          <AttestationModal
+            rows={rows}
+            ticket={TICKET}
+            signed={signedAttestation}
+            onClose={() => setAttestOpen(false)}
+            onSign={(sig) => {
+              setSignedAttestation(sig);
+              setIntakeComplete(true);
+              setStatus('completed');
+              setAttestOpen(false);
+              showToast(`Attestation signed by ${sig.name}`);
+            }}
           />
         )}
 
